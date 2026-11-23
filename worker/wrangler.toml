@@ -1,0 +1,10 @@
+name = "awqat"
+main = "worker.js"
+compatibility_date = "2026-11-01"
+
+[vars]
+ALLOWED_ORIGIN = "https://dullahcrypto.github.io"
+MODEL = "claude-sonnet-5-5"
+# NEWS_FEEDS = "https://example.com/feed,https://example.org/rss"
+# YT_CHANNELS = "UCxxxxxxxxxxxxxxxxxxxxxx,UCyyyyyyyyyyyyyyyyyyyyyy"
+# Set the key as a secret, never here:  npx wrangler secret put ANTHROPIC_API_KEY
