@@ -3,6 +3,7 @@ import { currentKey, SKY, saveSnap, deleteSnap, useSnap, schedule } from './pray
 import { home, homeState, liveTick } from './home.js';
 import * as P from './pages.js';
 import { toast, I } from './ui.js';
+import { readOnDevice } from './ocr.js';
 import { shrink, scanBoard, quran, hadith, COLLECTIONS, news, videos } from './net.js';
 import { scheduleToday, enableNotifications, downloadICS, androidAlarmURL } from './alarms.js';
 import { COUNTRIES, placeLabel } from '../data/places.js';
@@ -125,6 +126,17 @@ document.addEventListener('click', async (e) => {
       scheduleToday(); render(true); break;
     }
     case 'manual': P.ps.pending = { times: {} }; location.hash = '#/review'; break;
+    case 'ai': {
+      if (!P.ps.preview) break;
+      try {
+        P.ps.error = ''; P.ps.failed = false; P.ps.scanning = true; P.ps.status = 'Reading with AI…';
+        if (location.hash !== '#/snap') location.hash = '#/snap'; else render(true);
+        const res = await scanBoard(P.ps.preview);
+        P.ps.scanning = false; P.ps.pending = { times: res.times || {}, confidence: res.confidence, notes: res.notes, source: 'ai' };
+        location.hash = '#/review'; render(true);
+      } catch (err) { P.ps.scanning = false; P.ps.failed = true; P.ps.error = err.message; render(true); }
+      break;
+    }
     case 'savesnap': {
       const f = document.getElementById('rform');
       const times = {};
@@ -181,11 +193,15 @@ document.addEventListener('change', async (e) => {
   if (!a) return;
   if (a === 'file' && el.files && el.files[0]) {
     try {
-      P.ps.error = ''; P.ps.preview = await shrink(el.files[0]); P.ps.scanning = true; render(true);
-      const res = await scanBoard(P.ps.preview);
-      P.ps.scanning = false; P.ps.pending = { times: res.times || {}, confidence: res.confidence, notes: res.notes };
-      location.hash = '#/review';
-    } catch (err) { P.ps.scanning = false; P.ps.error = err.message || 'Something went wrong'; render(true); }
+      P.ps.error = ''; P.ps.failed = false; P.ps.preview = await shrink(el.files[0]);
+      P.ps.scanning = true; P.ps.status = 'Reading on your phone…'; render(true);
+      const res = await readOnDevice(P.ps.preview, (pr) => { const b = document.querySelector('.badge'); if (b) b.textContent = 'Reading on your phone… ' + Math.round(pr * 100) + '%'; });
+      P.ps.scanning = false;
+      if (res.salah >= 3) {
+        P.ps.pending = { times: res.times, source: 'phone', found: res.salah };
+        location.hash = '#/review';
+      } else { P.ps.failed = true; render(true); }
+    } catch (err) { P.ps.scanning = false; P.ps.failed = true; P.ps.error = err.message || ''; render(true); }
   }
   if (a === 'country') {
     if (el.value === '__gps') return getGPS();

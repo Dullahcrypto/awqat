@@ -15,15 +15,15 @@ export function snap() {
   <div class="viewer">
     ${ps.preview ? `<img src="${ps.preview}" alt="Your photo of the prayer timetable">` : `<div style="text-align:center;color:#CFE0D7;padding:40px 30px;display:flex;flex-direction:column;align-items:center;gap:14px">${I.camera(44)}<span style="font-size:15px;line-height:1.5">Take a clear photo of any prayer timetable: a board on the wall, a printed sheet, or a screen.</span></div>`}
     <div class="corners" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
-    ${ps.scanning ? '<div class="scanline" aria-hidden="true"></div><div class="badge">Reading the times…</div>' : ''}
+    ${ps.scanning ? `<div class="scanline" aria-hidden="true"></div><div class="badge">${esc(ps.status || 'Reading the times…')}</div>` : ''}
   </div>
-  ${ps.error ? `<div class="empty small" style="margin-top:0;color:var(--ink)">${esc(ps.error)}</div>` : ''}
+  ${ps.failed && !ps.scanning ? `<div class="card" style="margin-bottom:14px"><p style="margin:0 0 4px;font-weight:600">Couldn't read all the times</p><p class="small muted" style="margin:0">${esc(ps.error || 'The phone reader found too few times in this photo. Try again closer with less glare, or let the AI read it.')}</p>${WORKER() ? '<button class="btn" data-act="ai" style="margin-top:14px">Read with AI</button>' : ''}</div>` : ''}
   <div class="pad" style="display:flex;flex-direction:column;gap:10px">
     <label class="btn" style="cursor:pointer">${I.camera(20)}Take photo<input type="file" accept="image/*" capture="environment" data-act="file" hidden></label>
     <label class="btn ghost" style="cursor:pointer">${I.gallery(20)}Choose from gallery<input type="file" accept="image/*" data-act="file" hidden></label>
     <button class="btn ghost" data-act="manual">Type the times instead</button>
   </div>
-  ${WORKER() ? '' : `<p class="pad small muted" style="margin-top:16px">The AI reader isn't connected yet, so you can type the times in. To turn on scanning, add your worker link in <a href="#/settings" style="text-decoration:underline">Settings</a>.</p>`}
+  <p class="pad small muted" style="margin-top:16px">Photos are read on your phone for free.${WORKER() ? ' If that misses, Awqat can read it with AI.' : ' AI reading for hard photos turns on once the worker link is added in <a href="#/settings" style="text-decoration:underline">Settings</a>.'}</p>
   </div>`;
 }
 
@@ -33,7 +33,7 @@ export function review() {
   const c = calc();
   const val = (k, f) => (p.times[k] && p.times[k][f]) || '';
   return `<div class="screen">${backbar('Check the times', '#/snap')}
-  ${p.confidence ? `<p class="pad small muted" style="margin:12px 0 0">AI read this with ${esc(p.confidence)} confidence${p.notes ? ': ' + esc(p.notes) : ''}. Fix anything that looks wrong.</p>` : `<p class="pad small muted" style="margin:12px 0 0">Enter the times from the timetable. Leave a box empty to use the calculated time.</p>`}
+  ${p.source === 'phone' ? `<div class="card" style="margin-top:14px;display:flex;flex-direction:column;gap:10px"><span class="small">Read on your phone: found ${p.found} of 5 prayers. Check every time below.</span>${WORKER() && ps.preview ? '<button class="btn sm ghost" data-act="ai" style="width:100%">Not right? Read with AI</button>' : ''}</div>` : p.confidence ? `<p class="pad small muted" style="margin:12px 0 0">AI read this with ${esc(p.confidence)} confidence${p.notes ? ': ' + esc(p.notes) : ''}. Fix anything that looks wrong.</p>` : `<p class="pad small muted" style="margin:12px 0 0">Enter the times from the timetable. Leave a box empty to use the calculated time.</p>`}
   <div class="field" style="margin-top:16px"><label for="label">Name these times (optional)</label><input id="label" class="input" placeholder="e.g. Work, Home, Ramadan" value="${esc(p.label || '')}"></div>
   <div class="rhead"><span>PRAYER</span><span>ADHAN</span><span>IQAMA</span></div>
   <form class="rtable" id="rform">
