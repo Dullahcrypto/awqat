@@ -196,10 +196,52 @@ function byText(text) {
   return times;
 }
 
+// When names are unreadable: boards list prayers in day order, so map rows of
+// times to Fajr → Sunrise → Dhuhr → Asr → Maghrib → Isha → Jumu'ah in sequence.
+const ORDER = ['fajr', 'sunrise', 'dhuhr', 'asr', 'maghrib', 'isha', 'jumuah'];
+const mins = (s) => +s.slice(0, 2) * 60 + +s.slice(3);
+function assignInOrder(rows) {
+  const times = {}; let p = 0, last = -1;
+  for (const row of rows) {
+    if (!row.length) continue;
+    for (let i = p; i < ORDER.length; i++) {
+      const k = ORDER[i];
+      if (k === 'sunrise' && row.length > 1) continue; // sunrise has one time
+      if (k === 'fajr' && row.length === 1 && row[0][0] % 12 >= 6) continue; // a lone 6:xx is sunrise
+      const v = row.map(([h, m]) => to24(k, h, m));
+      if (!ok(k, v[0])) continue;
+      if (k !== 'jumuah' && mins(v[0]) <= last) continue;
+      setTimes(times, k, row);
+      if (times[k]) { if (k !== 'jumuah') last = mins(times[k].adhan); p = i + 1; break; }
+    }
+  }
+  return times;
+}
+function rowsFromWords(words) {
+  const T = tokens(words).filter((w) => w.time && !w.label).sort((a, b) => a.cy - b.cy);
+  const rows = [];
+  T.forEach((t) => { const r = rows.find((r) => Math.abs(r.cy - t.cy) < t.h * 0.6); if (r) { r.items.push(t); r.cy = (r.cy + t.cy) / 2; } else rows.push({ cy: t.cy, items: [t] }); });
+  rows.forEach((r) => r.items.sort((a, b) => a.cx - b.cx));
+  // a wide row (4+ times) is a horizontal board: each time is its own prayer
+  if (rows.length <= 3 && rows.some((r) => r.items.length >= 4)) {
+    const [r1, r2] = rows.filter((r) => r.items.length >= 4);
+    return r1.items.map((t, i) => [t.time].concat(r2 && r2.items[i] ? [r2.items[i].time] : []));
+  }
+  return rows.map((r) => r.items.slice(0, 2).map((t) => t.time));
+}
+function byOrder(text, words) {
+  if (words && words.length) return assignInOrder(rowsFromWords(words));
+  return assignInOrder(text.split(/\n+/).map((l) => l.split(/\s+/).map(timeOf).filter(Boolean).slice(0, 2)));
+}
+
 export function parse(text, words) {
   const a = words && words.length ? byGeometry(words) : {};
   const times = { ...byText(text || '') };
   Object.keys(a).forEach((k) => { times[k] = a[k]; }); // positions beat raw text order
+  if (SAL.filter((k) => times[k]).length < 5) {
+    const o = byOrder(text || '', words);
+    if (SAL.filter((k) => o[k]).length > SAL.filter((k) => times[k]).length) Object.keys(o).forEach((k) => { if (!times[k]) times[k] = o[k]; });
+  }
   return { times, salah: SAL.filter((k) => times[k]).length };
 }
 
