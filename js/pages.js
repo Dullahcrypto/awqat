@@ -1,6 +1,6 @@
 import { schedule, fmt, ampm, hhmm, calc, snaps, activeSnap, SALAH, PRAYERS, qiblaBearing } from './prayer.js';
 import { store, setting } from './store.js';
-import { esc, I, backbar, hijri, hijriParts, themeCards } from './ui.js';
+import { esc, I, backbar, hijri, hijriParts, themeCards, featureGrid } from './ui.js';
 import { SIRAH, DUAS, DHIKR, NAMES } from '../data/content.js';
 import { COUNTRIES } from '../data/places.js';
 import { COLLECTIONS, WORKER } from './net.js';
@@ -65,7 +65,7 @@ export function alarms() {
   const on = setting('alarmsOn'), lead = setting('alarmLead');
   const sch = schedule();
   const perm = 'Notification' in window ? Notification.permission : 'unsupported';
-  return `<div class="screen">${backbar('Alarms')}
+  return `<div class="screen">${backbar('Sync to phone')}
   <div class="sec-h" style="margin-top:20px"><span class="k">Ring at</span></div>
   <div class="seg" style="margin:0 18px">${[['adhan', 'Adhan'], ['iqama', 'Iqama'], ['10', '10 min before']].map(([v, l]) => `<button data-act="lead" data-v="${v}" aria-pressed="${lead === v}">${l}</button>`).join('')}</div>
   <div class="sec-h"><span class="k">Prayers</span></div>
@@ -279,11 +279,9 @@ export function watchPage(v) {
 }
 export function more() {
   return `<div class="screen">
-  <div class="top" style="padding-top:12px"><span class="h1">More</span><a class="iconbtn" href="#/settings" aria-label="Settings">${I.gear(20)}</a></div>
-  <div style="margin-top:20px">${libraryGrid()}</div>
-  <div class="list" style="margin-top:20px">
-    ${[['#/alarms', 'Alarms & sync'], ['#/news', 'Islamic news'], ['#/watch', 'Watch'], ['#/qibla', 'Qibla'], ['#/settings', 'Settings & theme']].map(([h, t]) => `<a class="li" href="${h}"><span style="font-weight:600">${t}</span>${I.chev()}</a>`).join('')}
-  </div></div>`;
+  <div class="top" style="padding-top:12px"><div style="display:flex;flex-direction:column;gap:2px"><span class="h1">Explore</span><span class="small muted">Everything in Awqat</span></div><a class="iconbtn" href="#/settings" aria-label="Settings">${I.gear(20)}</a></div>
+  ${featureGrid()}
+  </div>`;
 }
 
 // ---------- SETTINGS ----------

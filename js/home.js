@@ -1,6 +1,7 @@
 import { schedule, nextPrayer, fmt, ampm, left, SALAH, SKY, activeSnap, effectiveTheme } from './prayer.js';
 import { setting } from './store.js';
-import { esc, I, hijri, gdate, THEME_LIST } from './ui.js';
+import { esc, I, hijri, gdate, THEME_LIST, featureGrid } from './ui.js';
+import { store } from './store.js';
 import { DAILY } from '../data/content.js';
 
 export const homeState = { sel: null, open: null };
@@ -13,7 +14,7 @@ function sourceLine() {
   return s ? 'Snapped times · ' + esc(s.label) : 'Calculated for ' + esc(setting('location').label);
 }
 
-function heroSky(sch, nx) {
+function heroSky(sch, nx, ss) {
   const sel = homeState.sel || nx.key;
   const cur = sch.find((p) => p.key === sel) || nx;
   const isNext = cur.key === nx.key;
@@ -29,19 +30,20 @@ function heroSky(sch, nx) {
     ${SALAH.map((p) => { const q = arcPos(ARC_T[p.key]); return `<i class="adot" style="left:${q.x / 3.4}%;top:${q.y / 1.9}%"></i>`; }).join('')}
     <i class="sun" style="left:${sp.x / 3.4}%;top:${sp.y / 1.9}%"></i>
   </div>
-  <div class="pad" style="padding-top:30px;display:flex;flex-direction:column;gap:6px">
+  <div class="pad" style="padding-top:18px;display:flex;flex-direction:column;gap:6px">
     <span class="k">${isNext ? 'Next prayer · in <span data-live="left">' + left(nx.ms) + '</span>' : 'Today'}</span>
     <div style="display:flex;align-items:baseline;gap:14px"><span class="h1" style="font-size:46px">${esc(cur.name)}</span><span class="ar" style="font-size:24px;opacity:.75">${cur.ar}</span></div>
     <span class="bigtime">${fmt(cur.main)}</span>
     <span style="font-size:15px;opacity:.75">${cur.iqama ? 'Iqama · adhan at ' + fmt(cur.adhan) + ' ' + ampm(cur.adhan) : 'Adhan · ' + ampm(cur.adhan)}</span>
   </div>
-  <div class="chips" style="margin-top:22px" role="group" aria-label="Prayers">
+  ${ss}
+  <div class="chips" style="margin-top:16px" role="group" aria-label="Prayers">
     ${sch.filter((p) => p.key !== 'sunrise').map((p) => `<button class="chip" data-act="sel" data-k="${p.key}" aria-pressed="${p.key === cur.key}">${esc(p.name === "Jumu'ah" ? 'Jumu’ah' : p.name)}</button>`).join('')}
   </div>
-  <div style="margin:14px 18px 0"><a class="btn" href="#/snap">${I.camera(20)}Snap prayer time</a></div>`;
+  `;
 }
 
-function heroClay(sch, nx) {
+function heroClay(sch, nx, ss) {
   return `
   <div class="top" style="padding-top:22px"><span class="brand">awqat</span><span style="display:flex;gap:8px"><a class="pill" href="#/settings">${I.loc(16)}${esc(setting('location').label)}</a></span></div>
   <div class="arch"><div class="arch-in">
@@ -50,16 +52,17 @@ function heroClay(sch, nx) {
     <span style="font-family:var(--fd);font-size:84px;line-height:.95;letter-spacing:-.03em">${fmt(nx.main)}</span>
     <span style="font-size:14px;font-weight:500;opacity:.9;margin-top:6px">${esc(nx.name)} ${nx.iqama ? 'iqama' : ''} · in <span data-live="left">${left(nx.ms)}</span></span>
   </div></div>
+  ${ss}
   <div class="list ptable" style="margin-top:20px">
     ${sch.map((p, i) => { const open = homeState.open === p.key; return `<button class="li rise" style="--i:${i};flex-direction:column;align-items:stretch;gap:6px" data-act="open" data-k="${p.key}" data-next="${p.key === nx.key ? 1 : 0}" aria-expanded="${open}">
       <span style="display:flex;justify-content:space-between;align-items:baseline"><span style="font-weight:600">${esc(p.name)}</span><span class="tm">${fmt(p.main)}</span></span>
       ${open ? `<span class="small muted" style="display:flex;justify-content:space-between;animation:up .4s both"><span>Adhan ${fmt(p.adhan)} ${ampm(p.adhan)}</span><span>${p.iqama ? 'Iqama ' + fmt(p.iqama) : 'No iqama set'}</span></span>` : ''}
     </button>`; }).join('')}
   </div>
-  <div style="margin:18px 22px 0"><a class="btn primary-dark" href="#/snap">${I.camera(20)}Snap prayer time</a></div>`;
+  `;
 }
 
-function heroInk(sch, nx) {
+function heroInk(sch, nx, ss) {
   const off = 754 * (1 - nx.frac);
   const sel = homeState.sel || nx.key;
   return `
@@ -73,14 +76,15 @@ function heroInk(sch, nx) {
     </svg>
     <div class="mid"><span class="ar" style="font-size:34px;color:var(--accent);line-height:1.2">${nx.ar}</span><span class="mono" style="font-size:38px;letter-spacing:-.02em" data-live="lefts">${left(nx.ms, true)}</span><span class="small muted">until ${esc(nx.name)} ${nx.iqama ? 'iqama' : ''} at ${fmt(nx.main)} ${ampm(nx.main)}</span></div>
   </div>
+  ${ss}
   <div class="sec-h" style="margin-top:30px"><span class="h2">Today</span><span class="k">swipe</span></div>
   <div class="rail">
     ${sch.map((p, i) => `<button class="pcard rise" style="--i:${i + 3}" data-act="sel" data-k="${p.key}" aria-pressed="${p.key === sel}"><span class="small muted">${esc(p.name)}</span><span class="tm">${fmt(p.main)}</span><span class="small muted">${p.iqama ? 'adhan ' + fmt(p.adhan) : ampm(p.adhan)}</span></button>`).join('')}
   </div>
-  <div style="margin:18px 22px 0"><a class="btn" href="#/snap">${I.camera(20)}Snap prayer time</a></div>`;
+  `;
 }
 
-function heroPaper(sch, nx) {
+function heroPaper(sch, nx, ss) {
   const h24 = setting('clock24');
   const nowF = (new Date().getHours() * 60 + new Date().getMinutes()) / 1440;
   const tl = (d) => ((d.getHours() * 60 + d.getMinutes()) / 1440 * 100).toFixed(1);
@@ -94,9 +98,10 @@ function heroPaper(sch, nx) {
     <div style="display:flex;justify-content:space-between;align-items:baseline"><span style="font-size:15px;font-weight:600">Next — ${esc(nx.name)}${nx.iqama ? ' iqama' : ''} · in <span data-live="left">${left(nx.ms)}</span></span><span class="ar" style="font-size:16px;flex-shrink:0;padding-left:8px">${nx.ar}</span></div>
     <span class="mega rise">${fmt(nx.main)}</span>
   </div>
+  ${ss}
   <div class="tline" aria-hidden="true"><div class="bar"></div>${sch.filter((p) => p.key !== 'sunrise').map((p) => `<i class="tk" style="left:${tl(p.main)}%"></i>`).join('')}<i class="now" style="left:${(nowF * 100).toFixed(1)}%"></i></div>
   <div class="pgrid">${sch.map((p, i) => `<div class="rise" style="--i:${i + 2}"><span class="small" style="font-weight:600;color:${p.key === nx.key ? 'var(--accent)' : 'var(--muted)'}">${esc(p.name)}</span><span class="tm">${fmt(p.main)}</span></div>`).join('')}</div>
-  <div style="margin:18px 22px 0"><a class="btn" href="#/snap">Snap prayer time ${I.camera(22)}</a></div>`;
+  `;
 }
 
 const LIB = [
@@ -117,7 +122,7 @@ export function home(newsItems, vids) {
   const sch = schedule();
   const nx = nextPrayer();
   const theme = effectiveTheme();
-  const hero = { sky: heroSky, clay: heroClay, ink: heroInk, paper: heroPaper }[theme](sch, nx);
+  const hero = { sky: heroSky, clay: heroClay, ink: heroInk, paper: heroPaper }[theme](sch, nx, snapSync());
   const day = DAILY[Math.floor(Date.now() / 864e5) % DAILY.length];
   const r = setting('reminders');
   const mushaf = setting('mushaf');
@@ -139,8 +144,7 @@ export function home(newsItems, vids) {
     <a href="${last ? '#/surah/' + last.s : '#/quran'}" style="display:flex;justify-content:space-between;font-size:14px;border-top:1px solid var(--line);padding-top:12px"><span>${last ? 'Continue · ' + esc(last.name) + ', ayah ' + last.a : 'Start reading'}</span><span class="muted">${mushaf === 'madani' ? '604 pages' : 'Makkah print'}</span></a>
   </div>
 
-  <div class="sec-h"><span class="k">Library</span></div>
-  ${libraryGrid()}
+  ${featureGrid()}
 
   <div class="sec-h"><span class="k">Hadith of the day</span></div>
   <div class="quote"><span class="q">“${esc(day[0])}”</span><span class="small muted">${esc(day[1])}</span></div>
@@ -177,5 +181,30 @@ export function themeStrip() {
   return `<div class="tstrip" role="group" aria-label="Theme">
     ${chip('auto', 'Auto', `<i class="tdot" style="background:conic-gradient(#F2E7C9 0 25%,#B4532F 0 50%,#0F1522 0 75%,#F4F2EC 0)"></i>`, auto)}
     ${THEME_LIST.map((t) => chip(t.k, t.n.replace(' & Brass', ''), `<i class="tdot" style="background:${t.k === 'sky' ? t.bg : t.k === 'clay' ? t.ac : t.bg};box-shadow:inset 0 0 0 3px ${t.k === 'ink' ? t.ac : t.k === 'paper' ? t.ink : 'transparent'}"></i>`, !auto && cur === t.k)).join('')}
+  </div>`;
+}
+
+export function snapSync() {
+  const snap = activeSnap();
+  const on = setting('alarmsOn'), n = Object.values(on).filter(Boolean).length;
+  const lead = { adhan: 'at adhan', iqama: 'at iqama', '10': '10 min before iqama' }[setting('alarmLead')];
+  const notif = 'Notification' in window && Notification.permission === 'granted';
+  const ics = store.get('icsAt', null);
+  const synced = notif || ics;
+  const status = synced ? `${n} prayers · rings ${lead}${ics ? ' · calendar added' : ''}` : 'Not synced yet. Tap to set your alarms';
+  return `<div class="ss rise">
+    <a class="ss-snap" href="#/snap">
+      <span class="vf" aria-hidden="true"><i></i><i></i><i></i><i></i><b></b>${I.camera(30)}</span>
+      <span style="display:flex;flex-direction:column;align-items:flex-start;min-width:0">
+        <span class="ss-t">Snap prayer time</span>
+        <span class="small" style="opacity:.75;margin-top:4px">${snap ? 'Following: ' + esc(snap.label) : 'Photo any timetable. Saved in seconds.'}</span>
+        <span class="ss-go">${I.camera(16)}${snap ? 'Snap new times' : 'Open camera'}</span>
+      </span>
+    </a>
+    <a class="ss-sync" href="#/alarms">
+      <span class="ic">${I.bell(22)}</span>
+      <span style="display:flex;flex-direction:column;flex:1;min-width:0"><span style="font-weight:700;font-size:16px">Sync to phone</span><span class="small" style="opacity:.75"><i class="dot" style="background:${synced ? '#7FD1AE' : '#F2A65A'}"></i>${status}</span></span>
+      ${I.chev(18)}
+    </a>
   </div>`;
 }

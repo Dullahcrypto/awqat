@@ -42,7 +42,7 @@ function nav(route) {
     <a href="#/quran" ${route.startsWith('/surah') || route.startsWith('/mushaf') ? 'aria-current="page"' : cur('/quran')}>Qur'an</a>
     <a class="snapbtn" href="#/snap" aria-label="Snap prayer time">${I.camera(22)}<span class="lbl">Snap</span></a>
     <a href="#/qibla" ${cur('/qibla')}>Qibla</a>
-    <a href="#/more" ${cur('/more')}>More</a>`;
+    <a href="#/more" ${cur('/more')}>Explore</a>`;
   $nav.style.display = route === '/snap' || route === '/review' || route === '/welcome' ? 'none' : '';
 }
 
@@ -161,7 +161,7 @@ document.addEventListener('click', async (e) => {
       else toast('Notifications are blocked in your browser settings');
       render(true); break;
     }
-    case 'ics': e.preventDefault(); downloadICS(); toast('Open the downloaded file to add the alerts'); break;
+    case 'ics': e.preventDefault(); downloadICS(); store.set('icsAt', Date.now()); toast('Open the downloaded file to add the alerts'); break;
     case 'android': { e.preventDefault(); const p = schedule().find((x) => x.key === k); location.href = androidAlarmURL(p); break; }
     case 'compass': startCompass(); break;
     case 'bookmark': store.set('lastRead', { s: +el.dataset.s, a: +el.dataset.a, name: el.dataset.name }); toast('Saved as last read'); break;

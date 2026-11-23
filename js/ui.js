@@ -76,3 +76,34 @@ export function themeSheet(current) {
   <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px"><span class="h2">Choose a look</span><button class="iconbtn" data-act="closesheet" aria-label="Close">${I.close(18)}</button></div>
   <div class="tgrid">${themeCards(current)}</div></div>`;
 }
+
+const fi = (d) => `<svg aria-hidden="true" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">${d}</svg>`;
+export const FEATURES = [
+  { g: 'Read', items: [
+    ['#/quran', "Qur'an", '#1F6B4F', fi('<path d="M4 5.5c2.7-.9 5.4-.8 8 1 2.6-1.8 5.3-1.9 8-1V19c-2.7-.9-5.4-.8-8 1-2.6-1.8-5.3-1.9-8-1z"/><path d="M12 6.5V20"/><path d="M7 9.5h2.5M14.5 9.5H17"/>')],
+    ['#/hadith', 'Hadith', '#9A6B1F', fi('<path d="M6 3h9l3 3v15H6z"/><path d="M15 3v3h3"/><path d="M9 11h6M9 14.5h6M9 18h3.5"/>')],
+    ['#/sirah', 'Sirah', '#B4532F', fi('<path d="M3 20h18"/><path d="M5 20V10l3-3 3 3v10"/><path d="M13 20v-7a3 3 0 0 1 6 0v7"/><path d="M8 3v4"/>')],
+    ['#/duas', 'Duas', '#3E5BA9', fi('<path d="M8 21v-5.5L5.5 12a2 2 0 0 1 3-2.6L10 11V4.5a1.5 1.5 0 0 1 3 0V11l1.5-1.6a2 2 0 0 1 3 2.6L15 15.5V21"/>')]
+  ] },
+  { g: 'Worship', items: [
+    ['#/tasbih', 'Tasbih', '#7A3E7A', fi('<circle cx="12" cy="5" r="2"/><circle cx="6.5" cy="9" r="2"/><circle cx="17.5" cy="9" r="2"/><circle cx="8" cy="15" r="2"/><circle cx="16" cy="15" r="2"/><path d="M12 17v4"/>')],
+    ['#/qibla', 'Qibla', '#1F6B78', fi('<circle cx="12" cy="12" r="9"/><path d="M15.5 8.5l-2 5-5 2 2-5z"/>')],
+    ['#/names', '99 Names', '#A8862E', fi('<path d="M12 3l2.2 4.6 5 .7-3.6 3.5.9 5-4.5-2.4-4.5 2.4.9-5L4.8 8.3l5-.7z"/>')],
+    ['#/calendar', 'Calendar', '#5C6B2E', fi('<rect x="4" y="5" width="16" height="15" rx="2"/><path d="M4 10h16M9 3v4M15 3v4"/><path d="M15.5 14.5a2.5 2.5 0 1 1-2-3 2 2 0 0 0 2 3z"/>')]
+  ] },
+  { g: 'Tools', items: [
+    ['#/snap', 'Snap times', '#24301F', fi('<path d="M4 8V5h3M17 5h3v3M20 16v3h-3M7 19H4v-3"/><circle cx="12" cy="12" r="3"/>')],
+    ['#/alarms', 'Sync to phone', '#C2553C', fi('<path d="M6 16V11a6 6 0 0 1 12 0v5l1.5 2h-15z"/><path d="M10 21h4"/>')],
+    ['#/saved', 'Saved times', '#4A5A70', fi('<path d="M6 3h12v18l-6-4-6 4z"/>')],
+    ['#/zakat', 'Zakat', '#2E7D5B', fi('<circle cx="12" cy="12" r="8.5"/><path d="M14.5 9.2c-.5-.8-1.4-1.2-2.5-1.2-1.5 0-2.5.8-2.5 2s1.1 1.6 2.5 2 2.5.8 2.5 2-1 2-2.5 2c-1.1 0-2-.4-2.5-1.2M12 6.5V8M12 16v1.5"/>')]
+  ] },
+  { g: 'Discover', items: [
+    ['#/news', 'News', '#8C3B3B', fi('<rect x="3" y="5" width="14" height="14" rx="1.5"/><path d="M17 9h3v8.5a1.5 1.5 0 0 1-3 0"/><path d="M6 9h8M6 12.5h8M6 16h5"/>')],
+    ['#/watch', 'Watch', '#B23A2F', fi('<rect x="3" y="5.5" width="18" height="13" rx="3"/><path d="M10.5 9.5l4 2.5-4 2.5z"/>')],
+    ['#/settings', 'Settings', '#555049', fi('<path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/>')]
+  ] }
+];
+export function featureGrid(groups = FEATURES, labelled = true) {
+  return groups.map((grp, gi) => `${labelled ? `<div class="fg-h"><span>${grp.g}</span></div>` : ''}<div class="fgrid">${grp.items.map(([h, n, c, ic], i) =>
+    `<a class="fitem rise" style="--i:${gi * 4 + i}" href="${h}"><span class="ficon" style="--c:${c}">${ic}</span><span class="flabel">${n}</span></a>`).join('')}</div>`).join('');
+}
