@@ -24,7 +24,7 @@ function toCanvas(src) {
   return new Promise((res, rej) => {
     const img = new Image();
     img.onload = () => {
-      const s = Math.min(3, 2200 / Math.max(img.width, img.height));
+      const s = Math.min(3, (window.AWQAT_RES || 2200) / Math.max(img.width, img.height));
       const c = document.createElement('canvas'); c.width = Math.round(img.width * s); c.height = Math.round(img.height * s);
       const x = c.getContext('2d', { willReadFrequently: true }); x.imageSmoothingQuality = 'high'; x.drawImage(img, 0, 0, c.width, c.height);
       res(c);
@@ -72,6 +72,33 @@ function adaptive(G, invert, win = 0.06, t = 0.13) {
   return o;
 }
 
+// Straighten a tilted photo: try small angles, keep the one whose text rows line up best.
+function skewAngle(G, inv) {
+  const k = Math.max(1, Math.round(Math.max(G.w, G.h) / 500)), w = Math.floor(G.w / k), h = Math.floor(G.h / k);
+  const pts = [];
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    const v = G.g[(y * k) * G.w + x * k];
+    if (inv ? v > G.mean + 45 : v < G.mean - 45) pts.push(x - w / 2, y - h / 2);
+  }
+  if (pts.length < 200) return 0;
+  let best = 0, bestScore = -1;
+  for (let a = -10; a <= 10; a += 0.5) {
+    const r = a * Math.PI / 180, sn = Math.sin(r), cs = Math.cos(r), bins = new Float32Array(h * 2);
+    for (let i = 0; i < pts.length; i += 2) { const yy = Math.round(-pts[i] * sn + pts[i + 1] * cs + h); if (yy >= 0 && yy < bins.length) bins[yy]++; }
+    let sc = 0; for (let i = 1; i < bins.length; i++) { const d = bins[i] - bins[i - 1]; sc += d * d; }
+    if (sc > bestScore) { bestScore = sc; best = a; }
+  }
+  return best;
+}
+function rotated(c, deg) {
+  if (!deg) return c;
+  const r = deg * Math.PI / 180, o = document.createElement('canvas'); o.width = c.width; o.height = c.height;
+  const x = o.getContext('2d', { willReadFrequently: true });
+  x.fillStyle = '#808080'; x.fillRect(0, 0, o.width, o.height);
+  x.translate(o.width / 2, o.height / 2); x.rotate(-r); x.drawImage(c, -c.width / 2, -c.height / 2);
+  return o;
+}
+
 // ---------- understanding the text ----------
 const LABELS = {
   fajr: ['fajr', 'fajar', 'fadjr', 'subh', 'subuh', 'subah', 'sobh', 'asuba', 'asubah', 'dawn'],
@@ -106,7 +133,7 @@ export function labelOf(word) {
 const DIG = { o: '0', O: '0', D: '0', Q: '0', l: '1', I: '1', '|': '1', i: '1', '!': '1', S: '5', s: '5', B: '8', Z: '2', z: '2', g: '9', q: '9', G: '6', b: '6' };
 export function timeOf(tok) {
   if (!tok) return null;
-  let t = tok.trim().replace(/[ap]\.?m\.?$/i, '').replace(/^[^\dOolIS|]+|[^\dOolIS|]+$/g, '');
+  let t = tok.trim().replace(/[|\])}.,;:'"!]+$/, '').replace(/[ap]\.?m\.?$/i, '').replace(/^[^\dOolIS|]+|[^\dOolIS]+$/g, '');
   if (!/\d/.test(t) || t.length > 6) return null;
   t = t.split('').map((c) => DIG[c] || c).join('');
   const m = t.match(/^(\d{1,2})\s*[:.;,'·\-]\s*(\d{2})$/) || t.match(/^(\d)(\d{2})$/) || t.match(/^(0\d)(\d{2})$/);
@@ -126,6 +153,16 @@ const RANGE = { fajr: [3, 7], sunrise: [5, 8], dhuhr: [11, 15], jumuah: [11, 15]
 const ok = (k, s) => { if (!s) return false; const h = +s.slice(0, 2); return h >= RANGE[k][0] && h <= RANGE[k][1]; };
 
 const mins = (s) => +s.slice(0, 2) * 60 + +s.slice(3);
+// explicit fields (from column positions)
+function setFields(times, k, a, q) {
+  if (times[k]) return;
+  let A = a ? to24(k, a[0], a[1]) : '', Q = q ? to24(k, q[0], q[1]) : '';
+  if (A && !ok(k, A)) A = ''; if (Q && !ok(k, Q)) Q = '';
+  if (k === 'sunrise') Q = '';
+  if (A && Q && (Q <= A || mins(Q) - mins(A) > (k === 'jumuah' ? 90 : 60))) Q = '';
+  if (!A && !Q) return;
+  times[k] = { adhan: A, iqama: Q };
+}
 function setTimes(times, k, list) {
   if (times[k]) return;
   const v = list.map(([h, m]) => to24(k, h, m)).filter((s) => ok(k, s));
@@ -157,15 +194,32 @@ function tokens(words) {
   return res.map((w) => ({ ...w, cx: (w.x0 + w.x1) / 2, cy: (w.y0 + w.y1) / 2, h: Math.max(4, w.y1 - w.y0), label: labelOf(w.t), time: timeOf(w.t) }));
 }
 
+const ADH = ['adhan', 'azan', 'athan', 'adhaan', 'begins', 'start', 'starts', 'beginning'], IQ = ['iqama', 'iqamah', 'iqamat', 'jamaah', 'jamat', 'jamaat', 'jammat', 'congregation'];
+// x position dividing the adhan column from the iqama column (null = one column)
+function columnSplit(T, times) {
+  const hA = T.find((w) => ADH.includes(deglyph(w.t))), hQ = T.find((w) => IQ.includes(deglyph(w.t)));
+  if (hA && hQ && hQ.cx > hA.cx) return (hA.cx + hQ.cx) / 2;
+  const xs = times.map((t) => t.cx).sort((a, b) => a - b);
+  if (xs.length < 4) return null;
+  let gap = 0, at = null;
+  for (let i = 1; i < xs.length; i++) if (xs[i] - xs[i - 1] > gap) { gap = xs[i] - xs[i - 1]; at = (xs[i] + xs[i - 1]) / 2; }
+  const wid = times.reduce((s, t) => s + (t.x1 - t.x0), 0) / times.length;
+  const left = xs.filter((x) => x < at).length, right = xs.length - left;
+  return gap > wid * 1.2 && left >= 2 && right >= 2 ? at : null;
+}
 function byGeometry(words) {
   const T = tokens(words);
   const labels = T.filter((w) => w.label), times = T.filter((w) => w.time && !w.label);
   if (!labels.length || !times.length) return {};
   const rowT = {}, colT = {};
-  // Row layout: times to the right on the same line
+  const split = columnSplit(T, times);
+  // Row layout: times to the right on the same line, placed by column
   labels.forEach((L) => {
     const same = times.filter((t) => Math.abs(t.cy - L.cy) < Math.max(L.h, t.h) * 0.75 && t.cx > L.x0).sort((a, b) => a.cx - b.cx);
-    if (same.length) setTimes(rowT, L.label, same.slice(0, 2).map((t) => t.time));
+    if (!same.length) return;
+    if (split == null) return setTimes(rowT, L.label, same.slice(0, 2).map((t) => t.time));
+    const A = same.find((t) => t.cx < split), Q = same.find((t) => t.cx >= split);
+    setFields(rowT, L.label, A && A.time, Q && Q.time);
   });
   // Column layout: labels side by side in a header, times below each
   const header = labels.filter((L) => labels.filter((M) => Math.abs(M.cy - L.cy) < L.h).length >= 3);
@@ -201,20 +255,23 @@ function byText(text) {
 
 // When names are unreadable: boards list prayers in day order, so map rows of
 // times to Fajr → Sunrise → Dhuhr → Asr → Maghrib → Isha → Jumu'ah in sequence.
+let PRIOR = null;
 const ORDER = ['fajr', 'sunrise', 'dhuhr', 'asr', 'maghrib', 'isha', 'jumuah'];
 function assignInOrder(rows) {
   const times = {}; let p = 0, last = -1;
   for (const row of rows) {
-    if (!row.length) continue;
+    if (!row.length || (row.cols && !row[0] && !row[1])) continue;
+    const vals = row.cols ? row.filter(Boolean) : row;
     for (let i = p; i < ORDER.length; i++) {
       const k = ORDER[i];
-      if (k === 'sunrise' && row.length > 1) continue; // sunrise has one time
-      if (k === 'fajr' && row.length === 1 && row[0][0] % 12 >= 6) continue; // a lone 6:xx is sunrise
-      const v = row.map(([h, m]) => to24(k, h, m));
+      if (k === 'sunrise' && (row.cols ? row[1] : row.length > 1)) continue; // sunrise has one time
+      if (k === 'fajr' && vals.length === 1 && vals[0][0] % 12 >= 6 && !(row.cols && !row[0])) continue; // a lone 6:xx is sunrise
+      const v = vals.map(([h, m]) => to24(k, h, m));
       if (!ok(k, v[0])) continue;
       if (k !== 'jumuah' && mins(v[0]) <= last) continue;
-      setTimes(times, k, row);
-      if (times[k]) { if (k !== 'jumuah') last = mins(times[k].adhan); p = i + 1; break; }
+      if (PRIOR && PRIOR[k] != null && k !== 'jumuah' && Math.abs(mins(v[0]) - PRIOR[k]) > (row.cols && !row[0] ? 80 : 55)) continue;
+      if (row.cols) setFields(times, k, row[0], row[1]); else setTimes(times, k, row);
+      if (times[k]) { if (k !== 'jumuah') last = mins(times[k].adhan || times[k].iqama); p = i + 1; break; }
     }
   }
   return times;
@@ -229,7 +286,9 @@ function rowsFromWords(words) {
     const [r1, r2] = rows.filter((r) => r.items.length >= 4);
     return r1.items.map((t, i) => [t.time].concat(r2 && r2.items[i] ? [r2.items[i].time] : []));
   }
-  return rows.map((r) => r.items.slice(0, 2).map((t) => t.time));
+  const split = columnSplit(tokens(words), T);
+  if (split == null) return rows.map((r) => r.items.slice(0, 2).map((t) => t.time));
+  return rows.map((r) => { const A = r.items.find((t) => t.cx < split), Q = r.items.find((t) => t.cx >= split); const out = [A ? A.time : null, Q ? Q.time : null]; out.cols = true; return out; });
 }
 function byOrder(text, words) {
   if (words && words.length) return assignInOrder(rowsFromWords(words));
@@ -239,7 +298,13 @@ function byOrder(text, words) {
 export function parse(text, words) {
   const a = words && words.length ? byGeometry(words) : {};
   const times = { ...byText(text || '') };
-  Object.keys(a).forEach((k) => { times[k] = a[k]; }); // positions beat raw text order
+  // positions beat raw text order, but keep any field only the text found
+  Object.keys(a).forEach((k) => {
+    const g = a[k], t = times[k];
+    if (!t) { times[k] = g; return; }
+    const adhan = g.adhan || t.adhan;
+    times[k] = { adhan, iqama: g.iqama || (t.adhan === adhan && t.iqama > adhan ? t.iqama : '') };
+  });
   if (SAL.filter((k) => times[k]).length < 5) {
     const o = byOrder(text || '', words);
     if (SAL.filter((k) => o[k]).length > SAL.filter((k) => times[k]).length) Object.keys(o).forEach((k) => { if (!times[k]) times[k] = o[k]; });
@@ -255,26 +320,39 @@ function wordsOf(data) {
 }
 
 // Read several cleaned versions with different page modes; keep the best.
-export async function readOnDevice(dataUrl, onProgress = () => {}) {
+export async function readOnDevice(dataUrl, onProgress = () => {}, prior = null) {
   onProgress('Loading reader', 0.03);
+  PRIOR = prior;
   const w = await getWorker();
-  const base = await toCanvas(dataUrl);
-  const G = grey(base);
+  const t0 = Date.now();
+  let base = await toCanvas(dataUrl);
+  let G = grey(base);
   const inv = G.mean < 110;
+  const ang = window.AWQAT_NOSKEW ? 0 : skewAngle(G, inv);
+  if (Math.abs(ang) >= 1) { base = rotated(base, ang); G = grey(base); }
   const variants = [
+    ['Reading the photo', () => out(G, window.AWQAT_INV1 && inv ? G.g.map((v) => 255 - v) : G.g), '6'],
     ['Cleaning shadows and glare', () => out(G, adaptive(G, inv)), '6'],
     ['Boosting contrast', () => out(G, contrast(G, inv)), '6'],
-    ['Looking for scattered text', () => out(G, adaptive(G, inv, 0.1, 0.1)), '11'],
-    ['Trying light text on dark', () => out(G, contrast(G, !inv)), '6'],
-    ['Reading the original photo', () => base, '4']
+    ['Trying another way', () => out(G, adaptive(G, inv, 0.12, 0.08)), '4'],
+    ['Reading light-on-dark', () => out(G, G.g.map((v) => 255 - v)), '6']
   ];
-  const votes = {}; let agree = 0, prev = '';
+  const votes = {}; let agree = 0, prev = '', passes = 0;
   const vote = (k, f, v, wgt) => { if (!v) return; votes[k] = votes[k] || { adhan: {}, iqama: {} }; votes[k][f][v] = (votes[k][f][v] || 0) + wgt; };
   for (let i = 0; i < variants.length; i++) {
     const [msg, make, psm] = variants[i];
     onProgress(msg, 0.08 + 0.9 * (i / variants.length));
     await w.setParameters({ tessedit_pageseg_mode: psm, preserve_interword_spaces: '1', user_defined_dpi: '300' });
-    const { data } = await w.recognize(make().toDataURL('image/png'), {}, { text: true, blocks: true });
+    const left = 14000 - (Date.now() - t0);
+    if (i > 0 && left < 2500) break;
+    let timer;
+    const data = await Promise.race([
+      w.recognize(make().toDataURL('image/png'), {}, { text: true, blocks: true }).then((r) => r.data),
+      new Promise((res) => { timer = setTimeout(() => res(null), i === 0 ? 20000 : left); })
+    ]);
+    clearTimeout(timer);
+    if (!data) { try { await w.terminate(); } catch { /* */ } worker = null; loading = null; break; } // too slow: stop with what we have
+    passes++;
     const r = parse(data.text || '', wordsOf(data));
     const wgt = 1 + r.salah / 5; // passes that found more prayers count a little more
     Object.entries(r.times).forEach(([k, v]) => { vote(k, 'adhan', v.adhan, wgt); vote(k, 'iqama', v.iqama, wgt); });
@@ -282,19 +360,30 @@ export async function readOnDevice(dataUrl, onProgress = () => {}) {
     if (r.salah === 5 && sig === prev) agree++;
     prev = sig;
     if (agree >= 1 && i >= 1) break; // two passes read exactly the same full board
+    if (i === 0 && SAL.every((k) => r.times[k] && r.times[k].adhan && r.times[k].iqama)) break; // first read got the whole board
   }
   const pick = (o) => { const e = Object.entries(o || {}); if (!e.length) return ''; e.sort((x, y) => y[1] - x[1]); return e[0][0]; };
   const times = {};
-  Object.keys(votes).forEach((k) => { const a = pick(votes[k].adhan); if (!a) return; let q = pick(votes[k].iqama); if (q && q <= a) q = ''; times[k] = { adhan: a, iqama: k === 'sunrise' ? '' : q }; });
+  Object.keys(votes).forEach((k) => { const a = pick(votes[k].adhan); let q = k === 'sunrise' ? '' : pick(votes[k].iqama); if (a && q && q <= a) q = ''; if (a || q) times[k] = { adhan: a, iqama: q }; });
+  const tally = (v) => [...Object.values(v.adhan), ...Object.values(v.iqama)].reduce((x, y) => x + y, 0);
   // day order must hold: Fajr < Sunrise < Dhuhr < Asr < Maghrib < Isha
   const seq = ['fajr', 'sunrise', 'dhuhr', 'asr', 'maghrib', 'isha'];
   for (let i = 0; i < seq.length; i++) for (let j = i + 1; j < seq.length; j++) {
     const A = times[seq[i]], B = times[seq[j]];
-    if (A && B && A.adhan >= B.adhan) delete times[seq[i] === 'fajr' && seq[j] === 'sunrise' ? 'fajr' : (Object.values(votes[seq[i]].adhan).reduce((x, y) => x + y, 0) < Object.values(votes[seq[j]].adhan).reduce((x, y) => x + y, 0) ? seq[i] : seq[j])];
+    if (A && B && (A.adhan || A.iqama) >= (B.adhan || B.iqama)) delete times[seq[i] === 'fajr' && seq[j] === 'sunrise' ? 'fajr' : (tally(votes[seq[i]]) < tally(votes[seq[j]]) ? seq[i] : seq[j])];
   }
+  // compare with the calculated times for this location: a mosque adhan is never far from them
+  if (prior) Object.keys(times).forEach((k) => {
+    const c = prior[k]; if (c == null || k === 'jumuah') return;
+    const T = times[k];
+    if (T.adhan && Math.abs(mins(T.adhan) - c) > 55) T.adhan = '';
+    if (T.iqama && (mins(T.iqama) < c - 10 || mins(T.iqama) > c + 80)) T.iqama = '';
+    if (!T.adhan && !T.iqama) delete times[k];
+  });
   // how sure are we? a time seen in only one pass gets flagged for checking
-  const low = Object.keys(times).filter((k) => (votes[k].adhan[times[k].adhan] || 0) < 2.2 || (times[k].iqama && (votes[k].iqama[times[k].iqama] || 0) < 2.2));
-  const best = { times, low, salah: SAL.filter((k) => times[k]).length };
+  const need = passes > 1 ? 2.2 : 0; // one clean full read is trusted
+  const low = Object.keys(times).filter((k) => (!times[k].adhan && k !== 'sunrise') || (votes[k].adhan[times[k].adhan] || 0) < need || (times[k].iqama && (votes[k].iqama[times[k].iqama] || 0) < need));
+  const best = { times, low: low.filter((k) => times[k]), salah: SAL.filter((k) => times[k]).length };
   onProgress('Done', 1);
   return best;
 }

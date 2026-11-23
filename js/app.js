@@ -1,5 +1,5 @@
 import { store, setting, setSetting } from './store.js';
-import { currentKey, SKY, saveSnap, deleteSnap, useSnap, schedule, effectiveTheme } from './prayer.js';
+import { currentKey, SKY, saveSnap, deleteSnap, useSnap, schedule, effectiveTheme, calc } from './prayer.js';
 import { home, homeState, liveTick } from './home.js';
 import * as P from './pages.js';
 import { toast, I, themeSheet } from './ui.js';
@@ -136,7 +136,8 @@ document.addEventListener('click', async (e) => {
       try {
         const img = await cropTo(P.ps.preview, P.ps.crop);
         P.ps.cropping = false; P.ps.scanning = true; P.ps.status = 'Reading on your phone…'; P.ps.shown = img; render(true);
-        const res = await readOnDevice(img, (msg, f) => { const b = document.querySelector('.badge'); if (b) b.textContent = msg + '… ' + Math.round(f * 100) + '%'; });
+        const cal = calc(); const prior = {}; Object.keys(cal).forEach((k) => { prior[k] = cal[k].getHours() * 60 + cal[k].getMinutes(); });
+        const res = await readOnDevice(img, (msg, f) => { const b = document.querySelector('.badge'); if (b) b.textContent = msg + '… ' + Math.round(f * 100) + '%'; }, prior);
         P.ps.scanning = false;
         if (res.salah >= 2) { P.ps.pending = { times: res.times, low: res.low || [], source: 'phone', found: res.salah }; location.hash = '#/review'; }
         else { P.ps.failed = true; P.ps.cropping = true; P.ps.partial = res.times; render(true); }

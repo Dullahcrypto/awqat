@@ -119,7 +119,7 @@ html[data-theme="paper"] .sw[aria-checked="true"]::after{left:26px;background:va
 .field label{font-size:13px;color:var(--muted);font-weight:600}
 .input,select.input{min-height:48px;border-radius:calc(var(--rs) > 20px ? 14px : var(--rs));border-radius:14px;border:1.5px solid var(--line);background:var(--card);padding:0 14px;font-size:16px;width:100%}
 html[data-theme="paper"] .input{border-radius:4px;border-color:var(--ink);background:transparent}
-.timein{width:84px;min-height:40px;border-radius:10px;border:1.5px solid var(--line);background:var(--card);padding:0 8px;font-size:15px;text-align:center}
+.timein{width:100%;min-width:0;min-height:40px;border-radius:10px;border:1.5px solid var(--line);background:var(--card);padding:0 4px;font-size:14px;text-align:center}
 
 /* nav */
 .nav{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(var(--safe-b) + 18px);width:min(calc(100% - 32px),488px);height:64px;border-radius:32px;display:flex;align-items:center;justify-content:space-around;z-index:20;font-size:12px;font-weight:500;transition:background .9s,color .9s;background:color-mix(in srgb,var(--ink) 92%,transparent);color:var(--bg);box-shadow:0 10px 30px rgba(0,0,0,.18);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px)}
@@ -204,9 +204,9 @@ html[data-theme="paper"] .nav .snapbtn .lbl{display:inline}
 @keyframes scan{0%{top:10%}50%{top:88%}100%{top:10%}}
 .badge{position:absolute;bottom:16px;left:50%;transform:translateX(-50%);background:rgba(11,20,16,.9);border:1px solid #C9A24A;border-radius:20px;padding:8px 14px;font-size:12px;font-weight:600;color:#E3C77E;white-space:nowrap}
 .rtable{margin:0 18px;border-radius:18px;background:var(--card);padding:4px 14px}
-.rrow{display:grid;grid-template-columns:1fr 92px 92px;align-items:center;gap:6px;padding:9px 0;border-bottom:1px solid var(--line)}
+.rrow{display:grid;grid-template-columns:minmax(0,1fr) 108px 108px;align-items:center;gap:6px;padding:9px 0;border-bottom:1px solid var(--line)}
 .rrow:last-child{border-bottom:none}
-.rhead{display:grid;grid-template-columns:1fr 92px 92px;gap:6px;margin:16px 32px 6px;font-size:11px;font-weight:700;letter-spacing:.1em;color:var(--muted)}
+.rhead{display:grid;grid-template-columns:minmax(0,1fr) 108px 108px;gap:6px;margin:16px 32px 6px;font-size:11px;font-weight:700;letter-spacing:.1em;color:var(--muted)}
 
 /* compass */
 .compass{margin:40px auto 0;width:300px;height:300px;position:relative}
