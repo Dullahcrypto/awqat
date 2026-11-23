@@ -5,25 +5,28 @@ import { SIRAH, DUAS, DHIKR, NAMES } from '../data/content.js';
 import { COUNTRIES } from '../data/places.js';
 import { COLLECTIONS, WORKER } from './net.js';
 import { isIOS, isAndroid } from './alarms.js';
+import { aiOn, payOn, isPro, left as snapsLeft, FREE, PRICE, naira, canSnap } from './plan.js';
 import { videoRail, libraryGrid } from './home.js';
 
 export const ps = { pending: null, preview: null, scanning: false, error: '' };
 
 // ---------- SNAP ----------
 export function snap() {
-  return `<div class="screen">${backbar('Snap prayer time')}
+  const q = isPro() ? `<a class="pill" href="#/pro" style="border-color:var(--accent);color:var(--accent)">★ Lifetime</a>` : `<a class="pill" href="#/pro" style="flex-shrink:0">${snapsLeft()}/${FREE()} free</a>`;
+  if (!canSnap() && !ps.preview) return `<div class="screen">${backbar('Snap prayer time')}${paywall(true)}</div>`;
+  return `<div class="screen"><div class="back" style="justify-content:space-between"><span style="display:flex;align-items:center;gap:12px"><a class="iconbtn" href="#/" aria-label="Back">${I.back(20)}</a><h1 class="h2" style="margin:0">Snap prayer time</h1></span>${q}</div>
   <div class="viewer">
     ${ps.preview ? `<img src="${ps.preview}" alt="Your photo of the prayer timetable">` : `<div style="text-align:center;color:#CFE0D7;padding:40px 30px;display:flex;flex-direction:column;align-items:center;gap:14px">${I.camera(44)}<span style="font-size:15px;line-height:1.5">Take a clear photo of any prayer timetable: a board on the wall, a printed sheet, or a screen.</span></div>`}
     <div class="corners" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
     ${ps.scanning ? `<div class="scanline" aria-hidden="true"></div><div class="badge">${esc(ps.status || 'Reading the times…')}</div>` : ''}
   </div>
-  ${ps.failed && !ps.scanning ? `<div class="card" style="margin-bottom:14px"><p style="margin:0 0 4px;font-weight:600">Couldn't read all the times</p><p class="small muted" style="margin:0">${esc(ps.error || 'The phone reader found too few times in this photo. Try again closer with less glare, or let the AI read it.')}</p>${WORKER() ? '<button class="btn" data-act="ai" style="margin-top:14px">Read with AI</button>' : ''}</div>` : ''}
+  ${ps.failed && !ps.scanning ? `<div class="card" style="margin-bottom:14px"><p style="margin:0 0 4px;font-weight:600">Couldn't read all the times</p><p class="small muted" style="margin:0">${esc(ps.error || 'Awqat found too few times in this photo. Try again closer, straight on, with less glare, or type the times in.')}</p>${aiOn() ? '<button class="btn" data-act="ai" style="margin-top:14px">Read with AI</button>' : ''}</div>` : ''}
   <div class="pad" style="display:flex;flex-direction:column;gap:10px">
     <label class="btn" style="cursor:pointer">${I.camera(20)}Take photo<input type="file" accept="image/*" capture="environment" data-act="file" hidden></label>
     <label class="btn ghost" style="cursor:pointer">${I.gallery(20)}Choose from gallery<input type="file" accept="image/*" data-act="file" hidden></label>
     <button class="btn ghost" data-act="manual">Type the times instead</button>
   </div>
-  <p class="pad small muted" style="margin-top:16px">Photos are read on your phone for free.${WORKER() ? ' If that misses, Awqat can read it with AI.' : ' AI reading for hard photos turns on once the worker link is added in <a href="#/settings" style="text-decoration:underline">Settings</a>.'}</p>
+  <p class="pad small muted" style="margin-top:16px">Photos are read on your phone, so nothing is uploaded.${aiOn() ? ' If that misses, Awqat can read it with AI.' : ''}</p>
   </div>`;
 }
 
@@ -33,7 +36,7 @@ export function review() {
   const c = calc();
   const val = (k, f) => (p.times[k] && p.times[k][f]) || '';
   return `<div class="screen">${backbar('Check the times', '#/snap')}
-  ${p.source === 'phone' ? `<div class="card" style="margin-top:14px;display:flex;flex-direction:column;gap:10px"><span class="small">Read on your phone: found ${p.found} of 5 prayers. Check every time below.</span>${WORKER() && ps.preview ? '<button class="btn sm ghost" data-act="ai" style="width:100%">Not right? Read with AI</button>' : ''}</div>` : p.confidence ? `<p class="pad small muted" style="margin:12px 0 0">AI read this with ${esc(p.confidence)} confidence${p.notes ? ': ' + esc(p.notes) : ''}. Fix anything that looks wrong.</p>` : `<p class="pad small muted" style="margin:12px 0 0">Enter the times from the timetable. Leave a box empty to use the calculated time.</p>`}
+  ${p.source === 'phone' ? `<div class="card" style="margin-top:14px;display:flex;flex-direction:column;gap:10px"><span class="small">Read on your phone: found ${p.found} of 5 prayers. Check every time below.</span>${aiOn() && ps.preview ? '<button class="btn sm ghost" data-act="ai" style="width:100%">Not right? Read with AI</button>' : ''}</div>` : p.confidence ? `<p class="pad small muted" style="margin:12px 0 0">AI read this with ${esc(p.confidence)} confidence${p.notes ? ': ' + esc(p.notes) : ''}. Fix anything that looks wrong.</p>` : `<p class="pad small muted" style="margin:12px 0 0">Enter the times from the timetable. Leave a box empty to use the calculated time.</p>`}
   <div class="field" style="margin-top:16px"><label for="label">Name these times (optional)</label><input id="label" class="input" placeholder="e.g. Work, Home, Ramadan" value="${esc(p.label || '')}"></div>
   <div class="rhead"><span>PRAYER</span><span>ADHAN</span><span>IQAMA</span></div>
   <form class="rtable" id="rform">
@@ -290,6 +293,7 @@ const THEMES = [['sky', 'Sky', '#F2E7C9', '#24301F'], ['clay', 'Clay', '#B4532F'
 export function settings() {
   const loc = setting('location'), th = setting('theme');
   return `<div class="screen">${backbar('Settings')}
+  <a class="card" href="#/pro" style="margin-top:18px;display:flex;justify-content:space-between;align-items:center"><span style="display:flex;flex-direction:column;gap:2px"><span style="font-weight:700">${isPro() ? '★ Awqat Lifetime' : 'Free plan'}</span><span class="small muted">${isPro() ? 'Unlimited snaps' : snapsLeft() + ' of ' + FREE() + ' snaps left today · Lifetime ' + naira(PRICE())}</span></span>${I.chev()}</a>
   <div class="sec-h" style="margin-top:20px"><span class="k">Theme</span></div>
   <div class="list" style="margin-bottom:12px"><div class="li"><span style="display:flex;flex-direction:column;gap:2px"><span style="font-weight:600">Auto theme</span><span class="small muted">Sky at Fajr & Maghrib, Paper at Dhuhr, Clay at Asr, Ink & Brass at Isha</span></span><button class="sw" role="switch" aria-checked="${setting('themeAuto')}" aria-label="Auto theme" data-act="autotheme"></button></div></div>
   <div class="tgrid" style="margin:0 18px">${themeCards(setting('themeAuto') ? '' : th)}</div>
@@ -329,4 +333,30 @@ export function welcome() {
   <button class="btn ghost" data-act="gps" style="margin-top:10px">${I.loc(18)}Use my location instead</button>
   <button class="btn" data-act="start" style="margin-top:28px">Start</button>
   </div>`;
+}
+
+// ---------- LIFETIME ----------
+export function paywall(limitHit = false) {
+  const pro = isPro();
+  const perks = [['∞', 'Unlimited snaps', 'Snap every timetable you see, every day'], ['✦', 'First access to new features', 'AI reading and the Mushaf Maki as they arrive'], ['♥', 'Support Awqat', 'Keep it ad-free and growing']];
+  return `<div class="pay rise">
+    <div class="pay-top">
+      <span class="ar" style="font-size:28px;opacity:.9">أوقات</span>
+      <span class="pay-t">Awqat Lifetime</span>
+      <span class="small" style="opacity:.8">${limitHit ? `You've used today's ${FREE()} free snaps. They reset at midnight.` : 'One payment. Yours forever.'}</span>
+      <span class="pay-price">${naira(PRICE())}<small> once</small></span>
+    </div>
+    <div class="pay-perks">${perks.map(([i, t, d]) => `<div class="perk"><span class="pi">${i}</span><span style="display:flex;flex-direction:column"><span style="font-weight:600">${t}</span><span class="small muted">${d}</span></span></div>`).join('')}</div>
+    ${pro ? `<div class="card" style="margin:0 0 4px;text-align:center"><b>★ Lifetime is active on this phone.</b><br><span class="small muted">Thank you for supporting Awqat.</span></div>` : payOn() ? `
+      <div class="field" style="margin:0 0 10px"><label for="payemail">Email for your receipt</label><input id="payemail" class="input" type="email" inputmode="email" autocomplete="email" placeholder="you@example.com"></div>
+      <button class="btn" data-act="buy">Unlock lifetime · ${naira(PRICE())}</button>
+      <p class="small muted" style="text-align:center;margin:10px 0 0">Secure payment by Paystack: card, bank transfer or USSD.</p>
+      <details style="margin-top:14px"><summary class="small" style="font-weight:600;cursor:pointer">Already paid? Restore with your reference</summary>
+        <div style="display:flex;gap:8px;margin-top:10px"><input id="payref" class="input" placeholder="Paystack reference"><button class="btn sm" data-act="restore">Restore</button></div></details>`
+    : `<button class="btn" disabled style="opacity:.55">Lifetime unlock coming soon</button><p class="small muted" style="text-align:center;margin:10px 0 0">Payments open soon. Until then, you get ${FREE()} free snaps every day.</p>`}
+    ${limitHit ? `<button class="btn ghost" data-act="manual" style="margin-top:12px">Type the times instead</button>` : ''}
+  </div>`;
+}
+export function pro() {
+  return `<div class="screen">${backbar('Awqat Lifetime')}${paywall(false)}</div>`;
 }

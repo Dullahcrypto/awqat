@@ -2,6 +2,7 @@ import { schedule, nextPrayer, fmt, ampm, left, SALAH, SKY, activeSnap, effectiv
 import { setting } from './store.js';
 import { esc, I, hijri, gdate, THEME_LIST, featureGrid } from './ui.js';
 import { store } from './store.js';
+import { isPro, left as snapsLeft, FREE } from './plan.js';
 import { DAILY } from '../data/content.js';
 
 export const homeState = { sel: null, open: null };
@@ -198,7 +199,7 @@ export function snapSync() {
       <span style="display:flex;flex-direction:column;align-items:flex-start;min-width:0">
         <span class="ss-t">Snap prayer time</span>
         <span class="small" style="opacity:.75;margin-top:4px">${snap ? 'Following: ' + esc(snap.label) : 'Photo any timetable. Saved in seconds.'}</span>
-        <span class="ss-go">${I.camera(16)}${snap ? 'Snap new times' : 'Open camera'}</span>
+        <span style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><span class="ss-go">${I.camera(16)}${snap ? 'Snap new times' : 'Open camera'}</span><span class="small" style="opacity:.75;margin-top:10px">${isPro() ? '★ Lifetime' : snapsLeft() + '/' + FREE() + ' free today'}</span></span>
       </span>
     </a>
     <a class="ss-sync" href="#/alarms">

@@ -1,8 +1,8 @@
 // Awqat service worker: app shell offline, network-first for data.
-const V = 'awqat-v6';
+const V = 'awqat-v7';
 const SHELL = [
   './', 'index.html', 'config.js', 'css/app.css', 'manifest.webmanifest',
-  'js/app.js', 'js/home.js', 'js/pages.js', 'js/prayer.js', 'js/store.js', 'js/ui.js', 'js/net.js', 'js/alarms.js', 'js/ocr.js',
+  'js/app.js', 'js/home.js', 'js/pages.js', 'js/prayer.js', 'js/store.js', 'js/ui.js', 'js/net.js', 'js/alarms.js', 'js/ocr.js', 'js/plan.js',
   'data/content.js', 'data/places.js', 'vendor/adhan.js', 'icons/icon.svg', 'icons/icon-192.png', 'icons/icon-180.png'
 ];
 

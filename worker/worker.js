@@ -8,6 +8,8 @@
 //   MODEL              optional, default claude-sonnet-5-5
 //   NEWS_FEEDS         optional, comma-separated RSS/Atom URLs
 //   YT_CHANNELS        optional, comma-separated YouTube channel IDs (UC...)
+//   PAYSTACK_SECRET_KEY (secret) for GET /verify?ref=  (Lifetime purchase check)
+//   LIFETIME_KOBO      optional, default 200000 (₦2,000)
 
 const DEFAULT_FEEDS = [
   'https://news.google.com/rss/search?q=Islam+OR+Muslims+OR+Ramadan+OR+Hajj&hl=en-NG&gl=NG&ceid=NG:en',
@@ -105,6 +107,18 @@ async function videos(env, h) {
   return json({ items: items.slice(0, 24) }, 200, { ...h, 'Cache-Control': 'max-age=1800' });
 }
 
+async function verify(req, env, h) {
+  if (!env.PAYSTACK_SECRET_KEY) return json({ ok: false, error: 'Payments are not set up yet' }, 500, h);
+  const ref = new URL(req.url).searchParams.get('ref') || '';
+  if (!/^[\w.-]{4,100}$/.test(ref)) return json({ ok: false, error: 'Invalid reference' }, 400, h);
+  const r = await fetch('https://api.paystack.co/transaction/verify/' + encodeURIComponent(ref), { headers: { Authorization: 'Bearer ' + env.PAYSTACK_SECRET_KEY } });
+  const j = await r.json().catch(() => ({}));
+  const d = j.data || {};
+  const need = parseInt(env.LIFETIME_KOBO || '200000', 10);
+  if (j.status && d.status === 'success' && d.currency === 'NGN' && d.amount >= need) return json({ ok: true, email: (d.customer && d.customer.email) || '' }, 200, h);
+  return json({ ok: false, error: 'Payment not found or not completed' }, 402, h);
+}
+
 export default {
   async fetch(req, env, ctx) {
     const h = cors(env, req);
@@ -114,6 +128,7 @@ export default {
       if (pathname === '/scan' && req.method === 'POST') return await scan(req, env, h);
       if (pathname === '/news') return await news(env, h, ctx, req);
       if (pathname === '/videos') return await videos(env, h);
+      if (pathname === '/verify') return await verify(req, env, h);
       return json({ ok: true, service: 'awqat' }, 200, h);
     } catch (e) {
       return json({ error: String(e && e.message || e) }, 500, h);

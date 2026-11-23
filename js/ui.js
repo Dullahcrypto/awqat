@@ -100,6 +100,7 @@ export const FEATURES = [
   { g: 'Discover', items: [
     ['#/news', 'News', '#8C3B3B', fi('<rect x="3" y="5" width="14" height="14" rx="1.5"/><path d="M17 9h3v8.5a1.5 1.5 0 0 1-3 0"/><path d="M6 9h8M6 12.5h8M6 16h5"/>')],
     ['#/watch', 'Watch', '#B23A2F', fi('<rect x="3" y="5.5" width="18" height="13" rx="3"/><path d="M10.5 9.5l4 2.5-4 2.5z"/>')],
+    ['#/pro', 'Lifetime', '#B8913A', fi('<path d="M12 3l2.6 5.6 6 .7-4.4 4.1 1.2 6L12 16.4 6.6 19.4l1.2-6L3.4 9.3l6-.7z"/>')],
     ['#/settings', 'Settings', '#555049', fi('<path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/>')]
   ] }
 ];

@@ -4,6 +4,7 @@ import { home, homeState, liveTick } from './home.js';
 import * as P from './pages.js';
 import { toast, I, themeSheet } from './ui.js';
 import { readOnDevice } from './ocr.js';
+import { canSnap, recordSnap, buyLifetime, restore } from './plan.js';
 import { shrink, scanBoard, quran, hadith, COLLECTIONS, news, videos } from './net.js';
 import { scheduleToday, enableNotifications, downloadICS, androidAlarmURL } from './alarms.js';
 import { COUNTRIES, placeLabel } from '../data/places.js';
@@ -85,6 +86,7 @@ function view(route) {
   if (route === '/news') { loadFeeds(); return P.newsPage(cache.news); }
   if (route === '/watch') { loadFeeds(); return P.watchPage(cache.vids); }
   if (route === '/more') return P.more();
+  if (route === '/pro') return P.pro();
   if (route === '/settings') return P.settings();
   return home(cache.news, cache.vids);
 }
@@ -190,6 +192,18 @@ document.addEventListener('click', async (e) => {
     case 'themes': openSheet(); break;
     case 'autotheme': setSetting('themeAuto', !setting('themeAuto')); homeState.sel = null; render(true); toast(setting('themeAuto') ? 'Auto: Sky at Fajr and Maghrib, Paper at Dhuhr, Clay at Asr, Ink & Brass at Isha' : 'Auto theme off'); break;
     case 'closesheet': closeSheet(); break;
+    case 'buy': {
+      const em = (document.getElementById('payemail') || {}).value || '';
+      if (!/^\S+@\S+\.\S+$/.test(em)) { toast('Enter a valid email for your receipt'); break; }
+      try { await buyLifetime(em.trim()); toast('Lifetime unlocked. Jazakallahu khairan!'); render(true); } catch (err) { toast(err.message); }
+      break;
+    }
+    case 'restore': {
+      const ref = (document.getElementById('payref') || {}).value || '';
+      if (!ref.trim()) { toast('Paste your Paystack reference'); break; }
+      try { await restore(ref); toast('Lifetime restored'); render(true); } catch (err) { toast(err.message); }
+      break;
+    }
     case 'start': store.set('onboarded', true); location.hash = '#/'; break;
     case 'gps': getGPS(); break;
     case 'reset': if (confirm('Clear all Awqat data on this phone? Saved times and settings will be removed.')) { Object.keys(localStorage).filter((x) => x.startsWith('awqat:')).forEach((x) => localStorage.removeItem(x)); location.hash = '#/'; location.reload(); } break;
@@ -200,6 +214,8 @@ document.addEventListener('change', async (e) => {
   const el = e.target, a = el.dataset && el.dataset.act;
   if (!a) return;
   if (a === 'file' && el.files && el.files[0]) {
+    if (!canSnap()) { location.hash = '#/pro'; return; }
+    recordSnap();
     try {
       P.ps.error = ''; P.ps.failed = false; P.ps.preview = await shrink(el.files[0]);
       P.ps.scanning = true; P.ps.status = 'Reading on your phone…'; render(true);

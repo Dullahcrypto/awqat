@@ -302,3 +302,20 @@ html[data-theme="ink"] .ficon svg{color:color-mix(in srgb,var(--c) 45%,#EDE6D6)}
 html[data-theme="ink"] .ficon::before{background:radial-gradient(circle at 30% 20%,color-mix(in srgb,var(--c) 35%,transparent),transparent 70%)}
 html[data-theme="paper"] .ficon{border-radius:4px;box-shadow:none}
 html[data-theme="paper"] .ficon::before,html[data-theme="paper"] .ficon::after{display:none}
+
+/* Lifetime panel */
+.pay{margin:18px}
+.pay-top{display:flex;flex-direction:column;align-items:center;gap:6px;text-align:center;padding:30px 20px 26px;border-radius:calc(var(--r) + 6px);background:var(--ink);color:var(--bg);position:relative;overflow:hidden}
+.pay-top::before{content:"";position:absolute;width:260px;height:260px;border-radius:50%;border:1px solid color-mix(in srgb,var(--bg) 18%,transparent);top:-150px;left:50%;transform:translateX(-50%)}
+.pay-top::after{content:"";position:absolute;width:360px;height:360px;border-radius:50%;border:1px solid color-mix(in srgb,var(--bg) 10%,transparent);top:-200px;left:50%;transform:translateX(-50%)}
+html[data-theme="clay"] .pay-top{background:var(--accent);color:var(--on-accent);border-radius:150px 150px 18px 18px;padding-top:56px}
+html[data-theme="ink"] .pay-top{background:#151D2E;color:var(--ink);border:1px solid var(--accent)}
+.pay-t{font-family:var(--fd);font-size:32px;line-height:1.05}
+html[data-theme="paper"] .pay-t{font-weight:800;letter-spacing:-.04em}
+.pay-price{font-family:var(--fd);font-size:54px;line-height:1;margin-top:10px;color:var(--glow)}
+html[data-theme="clay"] .pay-price{color:#FFF3E2}
+html[data-theme="paper"] .pay-price{color:#7FD1AE;font-weight:800;letter-spacing:-.05em}
+.pay-price small{font-size:16px;opacity:.75;font-family:var(--fb)}
+.pay-perks{display:flex;flex-direction:column;gap:2px;margin:16px 0}
+.perk{display:flex;gap:14px;align-items:center;padding:12px 4px;border-bottom:1px solid var(--line)}
+.pi{width:40px;height:40px;border-radius:20px;flex-shrink:0;display:flex;align-items:center;justify-content:center;background:var(--card);color:var(--accent);font-size:18px;font-weight:700}
