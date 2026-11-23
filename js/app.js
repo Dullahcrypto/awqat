@@ -128,7 +128,22 @@ document.addEventListener('click', async (e) => {
       if (r[k]) await enableNotifications();
       scheduleToday(); render(true); break;
     }
-    case 'manual': P.ps.pending = { times: {} }; location.hash = '#/review'; break;
+    case 'rotate': P.ps.preview = await rotate(P.ps.preview); P.ps.crop = { x: 0.04, y: 0.04, w: 0.92, h: 0.92 }; render(true); break;
+    case 'retake': P.ps.preview = null; P.ps.cropping = false; P.ps.failed = false; render(true); break;
+    case 'read': {
+      if (!canSnap()) { location.hash = '#/pro'; break; }
+      recordSnap();
+      try {
+        const img = await cropTo(P.ps.preview, P.ps.crop);
+        P.ps.cropping = false; P.ps.scanning = true; P.ps.status = 'Reading on your phone…'; P.ps.shown = img; render(true);
+        const res = await readOnDevice(img, (msg, f) => { const b = document.querySelector('.badge'); if (b) b.textContent = msg + '… ' + Math.round(f * 100) + '%'; });
+        P.ps.scanning = false;
+        if (res.salah >= 2) { P.ps.pending = { times: res.times, source: 'phone', found: res.salah }; location.hash = '#/review'; }
+        else { P.ps.failed = true; P.ps.cropping = true; P.ps.partial = res.times; render(true); }
+      } catch (err) { P.ps.scanning = false; P.ps.failed = true; P.ps.cropping = true; P.ps.error = err.message || ''; render(true); }
+      break;
+    }
+    case 'manual': P.ps.pending = { times: P.ps.partial || {} }; location.hash = '#/review'; break;
     case 'ai': {
       if (!P.ps.preview) break;
       try {
@@ -215,17 +230,10 @@ document.addEventListener('change', async (e) => {
   if (!a) return;
   if (a === 'file' && el.files && el.files[0]) {
     if (!canSnap()) { location.hash = '#/pro'; return; }
-    recordSnap();
-    try {
-      P.ps.error = ''; P.ps.failed = false; P.ps.preview = await shrink(el.files[0]);
-      P.ps.scanning = true; P.ps.status = 'Reading on your phone…'; render(true);
-      const res = await readOnDevice(P.ps.preview, (pr) => { const b = document.querySelector('.badge'); if (b) b.textContent = 'Reading on your phone… ' + Math.round(pr * 100) + '%'; });
-      P.ps.scanning = false;
-      if (res.salah >= 3) {
-        P.ps.pending = { times: res.times, source: 'phone', found: res.salah };
-        location.hash = '#/review';
-      } else { P.ps.failed = true; render(true); }
-    } catch (err) { P.ps.scanning = false; P.ps.failed = true; P.ps.error = err.message || ''; render(true); }
+    P.ps.error = ''; P.ps.failed = false;
+    P.ps.preview = await shrink(el.files[0], 2400); P.ps.shown = null; P.ps.partial = null;
+    P.ps.crop = { x: 0.04, y: 0.04, w: 0.92, h: 0.92 }; P.ps.cropping = true;
+    render(true);
   }
   if (a === 'country') {
     if (el.value === '__gps') return getGPS();
@@ -268,6 +276,43 @@ function closeSheet(instant) {
   w.querySelector('.sheet-bg').style.opacity = '0'; setTimeout(() => w.remove(), 330);
 }
 window.addEventListener('hashchange', () => closeSheet(true));
+
+// ---------- crop & rotate ----------
+function loadImg(src) { return new Promise((r, j) => { const i = new Image(); i.onload = () => r(i); i.onerror = j; i.src = src; }); }
+async function rotate(src) {
+  const i = await loadImg(src), c = document.createElement('canvas');
+  c.width = i.height; c.height = i.width;
+  const x = c.getContext('2d'); x.translate(c.width, 0); x.rotate(Math.PI / 2); x.drawImage(i, 0, 0);
+  return c.toDataURL('image/jpeg', 0.92);
+}
+async function cropTo(src, r) {
+  const i = await loadImg(src), c = document.createElement('canvas');
+  const sx = r.x * i.width, sy = r.y * i.height, sw = r.w * i.width, sh = r.h * i.height;
+  c.width = Math.round(sw); c.height = Math.round(sh);
+  c.getContext('2d').drawImage(i, sx, sy, sw, sh, 0, 0, c.width, c.height);
+  return c.toDataURL('image/jpeg', 0.95);
+}
+let drag = null;
+document.addEventListener('pointerdown', (e) => {
+  const h = e.target.closest('[data-h]'); if (!h) return;
+  const box = document.getElementById('cropwrap'); if (!box) return;
+  e.preventDefault(); h.setPointerCapture && h.setPointerCapture(e.pointerId);
+  drag = { h: h.dataset.h, r: box.getBoundingClientRect(), sx: e.clientX, sy: e.clientY, c: { ...P.ps.crop } };
+});
+document.addEventListener('pointermove', (e) => {
+  if (!drag) return;
+  const dx = (e.clientX - drag.sx) / drag.r.width, dy = (e.clientY - drag.sy) / drag.r.height, c = { ...drag.c }, min = 0.12;
+  const cl = (v, a, b) => Math.max(a, Math.min(b, v));
+  if (drag.h === 'move') { c.x = cl(c.x + dx, 0, 1 - c.w); c.y = cl(c.y + dy, 0, 1 - c.h); }
+  if (drag.h.includes('l')) { const nx = cl(c.x + dx, 0, c.x + c.w - min); c.w += c.x - nx; c.x = nx; }
+  if (drag.h.includes('r')) c.w = cl(c.w + dx, min, 1 - c.x);
+  if (drag.h.includes('t')) { const ny = cl(c.y + dy, 0, c.y + c.h - min); c.h += c.y - ny; c.y = ny; }
+  if (drag.h.includes('b')) c.h = cl(c.h + dy, min, 1 - c.y);
+  P.ps.crop = c;
+  const f = document.getElementById('cropframe');
+  if (f) Object.assign(f.style, { left: c.x * 100 + '%', top: c.y * 100 + '%', width: c.w * 100 + '%', height: c.h * 100 + '%' });
+});
+document.addEventListener('pointerup', () => { drag = null; });
 
 function afterLocation() { scheduleToday(); toast('Prayer times updated for ' + setting('location').label); render(true); }
 

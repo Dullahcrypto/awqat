@@ -15,14 +15,22 @@ export function snap() {
   const q = isPro() ? `<a class="pill" href="#/pro" style="border-color:var(--accent);color:var(--accent)">★ Lifetime</a>` : `<a class="pill" href="#/pro" style="flex-shrink:0">${snapsLeft()}/${FREE()} free</a>`;
   if (!canSnap() && !ps.preview) return `<div class="screen">${backbar('Snap prayer time')}${paywall(true)}</div>`;
   return `<div class="screen"><div class="back" style="justify-content:space-between"><span style="display:flex;align-items:center;gap:12px"><a class="iconbtn" href="#/" aria-label="Back">${I.back(20)}</a><h1 class="h2" style="margin:0">Snap prayer time</h1></span>${q}</div>
-  <div class="viewer">
-    ${ps.preview ? `<img src="${ps.preview}" alt="Your photo of the prayer timetable">` : `<div style="text-align:center;color:#CFE0D7;padding:40px 30px;display:flex;flex-direction:column;align-items:center;gap:14px">${I.camera(44)}<span style="font-size:15px;line-height:1.5">Take a clear photo of any prayer timetable: a board on the wall, a printed sheet, or a screen.</span></div>`}
+  ${ps.cropping && ps.preview ? `
+  <p class="pad small muted" style="margin:12px 0 0">Drag the corners so the box covers only the prayer times. A tight box reads much better.</p>
+  <div class="cropstage"><div class="cropwrap" id="cropwrap"><img src="${ps.preview}" alt="Your photo" draggable="false">
+    <div class="cropframe" id="cropframe" data-h="move" style="left:${ps.crop.x * 100}%;top:${ps.crop.y * 100}%;width:${ps.crop.w * 100}%;height:${ps.crop.h * 100}%">
+      <i class="hd tl" data-h="tl"></i><i class="hd tr" data-h="tr"></i><i class="hd bl" data-h="bl"></i><i class="hd br" data-h="br"></i>
+    </div></div></div>
+  <div class="pad" style="display:flex;gap:10px;margin:4px 0 14px"><button class="btn ghost sm" data-act="rotate" style="flex:1">↻ Rotate</button><button class="btn ghost sm" data-act="retake" style="flex:1">Retake</button></div>`
+  : `<div class="viewer">
+    ${ps.preview ? `<img src="${ps.shown || ps.preview}" alt="Your photo of the prayer timetable">` : `<div style="text-align:center;color:#CFE0D7;padding:40px 30px;display:flex;flex-direction:column;align-items:center;gap:14px">${I.camera(44)}<span style="font-size:15px;line-height:1.5">Take a clear photo of any prayer timetable: a board on the wall, a printed sheet, or a screen.</span><span class="small" style="opacity:.75">Tips: stand straight in front, fill the frame, avoid glare.</span></div>`}
     <div class="corners" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
     ${ps.scanning ? `<div class="scanline" aria-hidden="true"></div><div class="badge">${esc(ps.status || 'Reading the times…')}</div>` : ''}
-  </div>
+  </div>`}
   ${ps.failed && !ps.scanning ? `<div class="card" style="margin-bottom:14px"><p style="margin:0 0 4px;font-weight:600">Couldn't read all the times</p><p class="small muted" style="margin:0">${esc(ps.error || 'Awqat found too few times in this photo. Try again closer, straight on, with less glare, or type the times in.')}</p>${aiOn() ? '<button class="btn" data-act="ai" style="margin-top:14px">Read with AI</button>' : ''}</div>` : ''}
   <div class="pad" style="display:flex;flex-direction:column;gap:10px">
-    <label class="btn" style="cursor:pointer">${I.camera(20)}Take photo<input type="file" accept="image/*" capture="environment" data-act="file" hidden></label>
+    ${ps.cropping && ps.preview ? `<button class="btn" data-act="read">Read these times</button>` : ''}
+    <label class="btn ${ps.cropping ? 'ghost' : ''}" style="cursor:pointer">${I.camera(20)}${ps.cropping ? 'Take another photo' : 'Take photo'}<input type="file" accept="image/*" capture="environment" data-act="file" hidden></label>
     <label class="btn ghost" style="cursor:pointer">${I.gallery(20)}Choose from gallery<input type="file" accept="image/*" data-act="file" hidden></label>
     <button class="btn ghost" data-act="manual">Type the times instead</button>
   </div>
