@@ -107,3 +107,9 @@ export function left(ms, withSec = false) {
   if (withSec) return h + ':' + String(m).padStart(2, '0') + ':' + String(sec).padStart(2, '0');
   return h ? h + 'h ' + m + 'm' : m + 'm';
 }
+
+// Auto theme: the look follows the time of day.
+export const AUTO_MAP = { fajr: 'sky', sunrise: 'sky', dhuhr: 'paper', asr: 'clay', maghrib: 'sky', isha: 'ink' };
+export function effectiveTheme(now = new Date()) {
+  return setting('themeAuto') ? AUTO_MAP[currentKey(now)] : setting('theme');
+}

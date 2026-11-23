@@ -293,7 +293,8 @@ export function settings() {
   const loc = setting('location'), th = setting('theme');
   return `<div class="screen">${backbar('Settings')}
   <div class="sec-h" style="margin-top:20px"><span class="k">Theme</span></div>
-  <div class="tgrid" style="margin:0 18px">${themeCards(th)}</div>
+  <div class="list" style="margin-bottom:12px"><div class="li"><span style="display:flex;flex-direction:column;gap:2px"><span style="font-weight:600">Auto theme</span><span class="small muted">Sky at Fajr & Maghrib, Paper at Dhuhr, Clay at Asr, Ink & Brass at Isha</span></span><button class="sw" role="switch" aria-checked="${setting('themeAuto')}" aria-label="Auto theme" data-act="autotheme"></button></div></div>
+  <div class="tgrid" style="margin:0 18px">${themeCards(setting('themeAuto') ? '' : th)}</div>
   <div class="sec-h"><span class="k">Location</span><span class="small muted">${esc(loc.label)}</span></div>
   <div class="field"><label for="country">Country</label><select id="country" class="input" data-act="country">${Object.keys(COUNTRIES).map((c) => `<option ${loc.country === c ? 'selected' : ''}>${c}</option>`).join('')}<option value="__gps" ${loc.kind === 'gps' ? 'selected' : ''}>Somewhere else (use my location)</option></select></div>
   ${loc.kind === 'gps' ? '' : `<div class="field"><label for="state">State</label><select id="state" class="input" data-act="state">${(COUNTRIES[loc.country] || []).map(([s]) => `<option value="${s}" ${loc.state === s ? 'selected' : ''}>${s === 'FCT' ? 'Abuja (FCT)' : s}</option>`).join('')}</select></div>`}
@@ -322,8 +323,9 @@ export function welcome() {
     <span class="muted">Snap any prayer timetable. Never miss a salah.</span>
   </div>
   <p class="k" style="margin:0 4px 10px">1 · Choose your look</p>
-  <div class="tgrid">${themeCards(th)}</div>
-  <p class="small muted" style="margin:10px 4px 0">You can change it any time with the ${I.palette(14)} button on the home screen.</p>
+  <div class="tgrid">${themeCards(setting('themeAuto') ? '' : th)}</div>
+  <button class="btn ${setting('themeAuto') ? '' : 'ghost'}" data-act="autotheme" style="margin-top:12px">${setting('themeAuto') ? '✓ Auto: changes with the prayer times' : 'Or let it change with the prayer times (Auto)'}</button>
+  <p class="small muted" style="margin:10px 4px 0">You can switch any time from the strip at the top of the home screen.</p>
   <p class="k" style="margin:28px 4px 10px">2 · Where are you?</p>
   <select class="input" data-act="state" aria-label="Your state">${(COUNTRIES[loc.country] || COUNTRIES.Nigeria).map(([st]) => `<option value="${st}" ${loc.state === st ? 'selected' : ''}>${st === 'FCT' ? 'Abuja (FCT)' : st}, Nigeria</option>`).join('')}</select>
   <button class="btn ghost" data-act="gps" style="margin-top:10px">${I.loc(18)}Use my location instead</button>

@@ -1,5 +1,5 @@
 import { store, setting, setSetting } from './store.js';
-import { currentKey, SKY, saveSnap, deleteSnap, useSnap, schedule } from './prayer.js';
+import { currentKey, SKY, saveSnap, deleteSnap, useSnap, schedule, effectiveTheme } from './prayer.js';
 import { home, homeState, liveTick } from './home.js';
 import * as P from './pages.js';
 import { toast, I, themeSheet } from './ui.js';
@@ -22,7 +22,7 @@ const FONTS = {
 const QFONT = '&family=Amiri+Quran&family=Amiri:wght@400;700';
 
 function applyTheme() {
-  const t = setting('theme');
+  const t = effectiveTheme();
   const html = document.documentElement;
   html.dataset.theme = t;
   const route = location.hash.slice(1) || '/';
@@ -184,10 +184,11 @@ document.addEventListener('click', async (e) => {
     case 'treset': store.set('tasbih', { i: 0, n: 0, total: 0, day: new Date().toDateString() }); render(true); break;
     case 'cal': P.cs.off += +el.dataset.d; render(true); break;
     case 'theme': {
-      setSetting('theme', v); homeState.sel = null; render(true);
+      setSetting('theme', v); setSetting('themeAuto', false); homeState.sel = null; render(true);
       if (document.querySelector('.sheet')) openSheet(); break;
     }
     case 'themes': openSheet(); break;
+    case 'autotheme': setSetting('themeAuto', !setting('themeAuto')); homeState.sel = null; render(true); toast(setting('themeAuto') ? 'Auto: Sky at Fajr and Maghrib, Paper at Dhuhr, Clay at Asr, Ink & Brass at Isha' : 'Auto theme off'); break;
     case 'closesheet': closeSheet(); break;
     case 'start': store.set('onboarded', true); location.hash = '#/'; break;
     case 'gps': getGPS(); break;
@@ -299,7 +300,8 @@ setInterval(() => {
   if (route === '/') liveTick();
   const m = new Date().getMinutes();
   if (m !== lastMinute) {
-    if (lastMinute !== -1 && route === '/' && !homeState.sel) render(true);
+    const themeChanged = document.documentElement.dataset.theme !== effectiveTheme();
+    if (lastMinute !== -1 && ((route === '/' && !homeState.sel) || themeChanged)) render(true);
     else applyTheme();
     lastMinute = m;
   }

@@ -13,6 +13,7 @@ export const store = {
 
 export const defaults = {
   theme: 'sky',
+  themeAuto: false,
   location: { kind: 'state', country: 'Nigeria', state: 'FCT', label: 'Abuja, Nigeria', lat: 9.0765, lng: 7.3986 },
   method: 'MuslimWorldLeague',
   madhab: 'Shafi',

@@ -1,6 +1,6 @@
-import { schedule, nextPrayer, fmt, ampm, left, SALAH, SKY, activeSnap } from './prayer.js';
+import { schedule, nextPrayer, fmt, ampm, left, SALAH, SKY, activeSnap, effectiveTheme } from './prayer.js';
 import { setting } from './store.js';
-import { esc, I, hijri, gdate } from './ui.js';
+import { esc, I, hijri, gdate, THEME_LIST } from './ui.js';
 import { DAILY } from '../data/content.js';
 
 export const homeState = { sel: null, open: null };
@@ -22,7 +22,7 @@ function heroSky(sch, nx) {
   <div class="cloud" style="top:118px;width:90px"></div><div class="cloud" style="top:170px;width:56px;height:12px;animation-duration:54s;animation-delay:-20s"></div>
   <div class="top" style="align-items:flex-start;padding-top:22px">
     <div style="display:flex;flex-direction:column;gap:2px"><span style="font-size:14px;font-weight:500">${gdate()}</span><span class="small muted">${esc(setting('location').label)}</span></div>
-    <span style="display:flex;flex-direction:column;align-items:flex-end;gap:8px"><span class="ar" style="font-size:18px;opacity:.8">${hijri(new Date(), 'ar')}</span><button class="iconbtn" data-act="themes" aria-label="Change look">${I.palette(20)}</button></span>
+    <span style="display:flex;flex-direction:column;align-items:flex-end;gap:8px"><span class="ar" style="font-size:18px;opacity:.8">${hijri(new Date(), 'ar')}</span></span>
   </div>
   <div class="arc" aria-hidden="true">
     <svg viewBox="0 0 340 190"><path d="M20 180 A150 150 0 0 1 320 180" fill="none" stroke="currentColor" stroke-opacity=".35" stroke-width="1.5" stroke-dasharray="2 6" stroke-linecap="round"/><path d="M0 180 H340" stroke="currentColor" stroke-opacity=".25"/></svg>
@@ -43,7 +43,7 @@ function heroSky(sch, nx) {
 
 function heroClay(sch, nx) {
   return `
-  <div class="top" style="padding-top:22px"><span class="brand">awqat</span><span style="display:flex;gap:8px"><a class="pill" href="#/settings">${I.loc(16)}${esc(setting('location').label)}</a><button class="iconbtn" data-act="themes" aria-label="Change look">${I.palette(20)}</button></span></div>
+  <div class="top" style="padding-top:22px"><span class="brand">awqat</span><span style="display:flex;gap:8px"><a class="pill" href="#/settings">${I.loc(16)}${esc(setting('location').label)}</a></span></div>
   <div class="arch"><div class="arch-in">
     <div class="lamp" aria-hidden="true"><i></i><b></b></div>
     <span class="ar" style="font-size:26px">${nx.ar}</span>
@@ -63,7 +63,7 @@ function heroInk(sch, nx) {
   const off = 754 * (1 - nx.frac);
   const sel = homeState.sel || nx.key;
   return `
-  <div class="top" style="padding-top:22px"><div style="display:flex;flex-direction:column;gap:2px"><span class="brand">Awqat</span><span class="small muted">${esc(setting('location').label)}</span></div><span style="display:flex;gap:8px"><button class="iconbtn" style="border-radius:14px;color:var(--accent)" data-act="themes" aria-label="Change look">${I.palette(20)}</button><a class="iconbtn" href="#/snap" aria-label="Snap prayer time" style="border-radius:14px;color:var(--accent)">${I.scan(22)}</a></span></div>
+  <div class="top" style="padding-top:22px"><div style="display:flex;flex-direction:column;gap:2px"><span class="brand">Awqat</span><span class="small muted">${esc(setting('location').label)}</span></div><span style="display:flex;gap:8px"><a class="iconbtn" href="#/snap" aria-label="Snap prayer time" style="border-radius:14px;color:var(--accent)">${I.scan(22)}</a></span></div>
   <div class="ring">
     <div class="glow" aria-hidden="true"></div>
     <svg viewBox="0 0 280 280" width="280" height="280" aria-hidden="true">
@@ -88,7 +88,7 @@ function heroPaper(sch, nx) {
   const snap = activeSnap();
   const tk = `<span>${loc}</span><span style="color:#7FD1AE">${snap ? 'SNAPPED TIMES · ' + esc(snap.label.toUpperCase()) : 'CALCULATED TIMES'}</span><span>${esc(hijri().toUpperCase())}</span>`;
   return `
-  <div class="top" style="padding-top:22px"><span class="brand" style="font-size:22px">Awqat.</span><span style="display:flex;gap:8px"><button class="pill" data-act="clock">${h24 ? '24h' : '12h'}</button><button class="iconbtn" style="border-color:var(--ink)" data-act="themes" aria-label="Change look">${I.palette(20)}</button></span></div>
+  <div class="top" style="padding-top:22px"><span class="brand" style="font-size:22px">Awqat.</span><span style="display:flex;gap:8px"><button class="pill" data-act="clock">${h24 ? '24h' : '12h'}</button></span></div>
   <div class="ticker" aria-hidden="true"><div>${tk}${tk}</div></div>
   <div class="pad" style="padding-top:26px;display:flex;flex-direction:column">
     <div style="display:flex;justify-content:space-between;align-items:baseline"><span style="font-size:15px;font-weight:600">Next — ${esc(nx.name)}${nx.iqama ? ' iqama' : ''} · in <span data-live="left">${left(nx.ms)}</span></span><span class="ar" style="font-size:16px;flex-shrink:0;padding-left:8px">${nx.ar}</span></div>
@@ -109,14 +109,14 @@ const LIB = [
   ['#/zakat', 'Zakat', 'Calculator', 'الزكاة'],
   ['#/saved', 'Saved times', 'Your snaps', 'المحفوظ']
 ];
-export const libraryGrid = () => `<div class="grid2">${LIB.map(([h, t, s, a], i) => `<a class="tile rise" style="--i:${i}" href="${h}">${setting('theme') === 'ink' ? `<span class="tar">${a}</span>` : ''}<span class="t">${t}</span><span class="small muted">${s}</span></a>`).join('')}</div>`;
+export const libraryGrid = () => `<div class="grid2">${LIB.map(([h, t, s, a], i) => `<a class="tile rise" style="--i:${i}" href="${h}">${effectiveTheme() === 'ink' ? `<span class="tar">${a}</span>` : ''}<span class="t">${t}</span><span class="small muted">${s}</span></a>`).join('')}</div>`;
 
 const REM = [['adhan', 'Adhan alerts', 'Every prayer'], ['kahf', 'Surah Al-Kahf on Friday', 'Friday morning'], ['adhkar', 'Morning adhkar', 'After Fajr'], ['fasts', 'Monday & Thursday fasts', 'Night before']];
 
 export function home(newsItems, vids) {
   const sch = schedule();
   const nx = nextPrayer();
-  const theme = setting('theme');
+  const theme = effectiveTheme();
   const hero = { sky: heroSky, clay: heroClay, ink: heroInk, paper: heroPaper }[theme](sch, nx);
   const day = DAILY[Math.floor(Date.now() / 864e5) % DAILY.length];
   const r = setting('reminders');
@@ -129,6 +129,7 @@ export function home(newsItems, vids) {
     : !newsItems.length ? '<div class="empty small">No news right now.</div>'
     : `<div class="list">${newsItems.slice(0, 3).map((n) => `<a class="li" href="${esc(n.link)}" target="_blank" rel="noopener" style="flex-direction:column;align-items:flex-start;gap:4px"><span style="font-family:var(--fd);font-size:18px;line-height:1.3">${esc(n.title)}</span><span class="small muted">${esc(n.source)}</span></a>`).join('')}</div><div style="margin:8px 22px 0"><a class="small" href="#/news" style="font-weight:600">All news →</a></div>`;
   return `<div class="screen" style="padding-top:var(--safe-t)">
+  ${themeStrip()}
   ${hero}
   <div class="sec-h src"><span class="small muted" style="font-weight:600">${sourceLine()}</span><a class="small" href="#/alarms" style="font-weight:600">Alarms →</a></div>
 
@@ -169,3 +170,12 @@ export function liveTick() {
   return nx;
 }
 export { SKY };
+
+export function themeStrip() {
+  const auto = setting('themeAuto'), cur = setting('theme');
+  const chip = (k, label, dot, on) => `<button class="tchip" data-act="${k === 'auto' ? 'autotheme' : 'theme'}" data-v="${k}" aria-pressed="${on}">${dot}<span>${label}</span></button>`;
+  return `<div class="tstrip" role="group" aria-label="Theme">
+    ${chip('auto', 'Auto', `<i class="tdot" style="background:conic-gradient(#F2E7C9 0 25%,#B4532F 0 50%,#0F1522 0 75%,#F4F2EC 0)"></i>`, auto)}
+    ${THEME_LIST.map((t) => chip(t.k, t.n.replace(' & Brass', ''), `<i class="tdot" style="background:${t.k === 'sky' ? t.bg : t.k === 'clay' ? t.ac : t.bg};box-shadow:inset 0 0 0 3px ${t.k === 'ink' ? t.ac : t.k === 'paper' ? t.ink : 'transparent'}"></i>`, !auto && cur === t.k)).join('')}
+  </div>`;
+}
