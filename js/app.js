@@ -2,7 +2,7 @@ import { store, setting, setSetting } from './store.js';
 import { currentKey, SKY, saveSnap, deleteSnap, useSnap, schedule } from './prayer.js';
 import { home, homeState, liveTick } from './home.js';
 import * as P from './pages.js';
-import { toast, I } from './ui.js';
+import { toast, I, themeSheet } from './ui.js';
 import { readOnDevice } from './ocr.js';
 import { shrink, scanBoard, quran, hadith, COLLECTIONS, news, videos } from './net.js';
 import { scheduleToday, enableNotifications, downloadICS, androidAlarmURL } from './alarms.js';
@@ -43,7 +43,7 @@ function nav(route) {
     <a class="snapbtn" href="#/snap" aria-label="Snap prayer time">${I.camera(22)}<span class="lbl">Snap</span></a>
     <a href="#/qibla" ${cur('/qibla')}>Qibla</a>
     <a href="#/more" ${cur('/more')}>More</a>`;
-  $nav.style.display = route === '/snap' || route === '/review' ? 'none' : '';
+  $nav.style.display = route === '/snap' || route === '/review' || route === '/welcome' ? 'none' : '';
 }
 
 function loadFeeds() {
@@ -54,6 +54,7 @@ function rerenderIf(routes) { const r = location.hash.slice(1) || '/'; if (route
 
 function view(route) {
   let m;
+  if (route === '/welcome') return P.welcome();
   if (route === '/') { loadFeeds(); return home(cache.news, cache.vids); }
   if (route === '/snap') return P.snap();
   if (route === '/review') return P.review();
@@ -182,7 +183,13 @@ document.addEventListener('click', async (e) => {
     }
     case 'treset': store.set('tasbih', { i: 0, n: 0, total: 0, day: new Date().toDateString() }); render(true); break;
     case 'cal': P.cs.off += +el.dataset.d; render(true); break;
-    case 'theme': setSetting('theme', v); homeState.sel = null; render(true); break;
+    case 'theme': {
+      setSetting('theme', v); homeState.sel = null; render(true);
+      if (document.querySelector('.sheet')) openSheet(); break;
+    }
+    case 'themes': openSheet(); break;
+    case 'closesheet': closeSheet(); break;
+    case 'start': store.set('onboarded', true); location.hash = '#/'; break;
     case 'gps': getGPS(); break;
     case 'reset': if (confirm('Clear all Awqat data on this phone? Saved times and settings will be removed.')) { Object.keys(localStorage).filter((x) => x.startsWith('awqat:')).forEach((x) => localStorage.removeItem(x)); location.hash = '#/'; location.reload(); } break;
   }
@@ -209,7 +216,7 @@ document.addEventListener('change', async (e) => {
     setSetting('location', { kind: 'state', country: el.value, state: s, label: placeLabel(el.value, s), lat, lng }); afterLocation();
   }
   if (a === 'state') {
-    const loc = setting('location'); const row = COUNTRIES[loc.country].find((x) => x[0] === el.value);
+    const loc = setting('location'); loc.country = loc.country || 'Nigeria'; const row = COUNTRIES[loc.country].find((x) => x[0] === el.value);
     setSetting('location', { kind: 'state', country: loc.country, state: row[0], label: placeLabel(loc.country, row[0]), lat: row[1], lng: row[2] }); afterLocation();
   }
   if (a === 'method') { setSetting('method', el.value); afterLocation(); }
@@ -231,6 +238,19 @@ document.addEventListener('input', (e) => {
     document.getElementById('zres').innerHTML = P.zakatResult(z);
   }
 });
+
+function openSheet() {
+  closeSheet(true);
+  const d = document.createElement('div'); d.id = 'sheetwrap'; d.innerHTML = themeSheet(setting('theme'));
+  document.body.appendChild(d);
+}
+function closeSheet(instant) {
+  const w = document.getElementById('sheetwrap'); if (!w) return;
+  if (instant) return w.remove();
+  w.querySelector('.sheet').style.transition = 'transform .35s'; w.querySelector('.sheet').style.transform = 'translate(-50%,100%)';
+  w.querySelector('.sheet-bg').style.opacity = '0'; setTimeout(() => w.remove(), 330);
+}
+window.addEventListener('hashchange', () => closeSheet(true));
 
 function afterLocation() { scheduleToday(); toast('Prayer times updated for ' + setting('location').label); render(true); }
 
@@ -287,5 +307,6 @@ setInterval(() => {
 document.addEventListener('visibilitychange', () => { if (!document.hidden) { scheduleToday(); render(true); } });
 
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
+if (!store.get('onboarded', false) && !location.hash.slice(1).replace('/', '')) location.hash = '#/welcome';
 render();
 scheduleToday();

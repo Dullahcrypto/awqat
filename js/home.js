@@ -22,7 +22,7 @@ function heroSky(sch, nx) {
   <div class="cloud" style="top:118px;width:90px"></div><div class="cloud" style="top:170px;width:56px;height:12px;animation-duration:54s;animation-delay:-20s"></div>
   <div class="top" style="align-items:flex-start;padding-top:22px">
     <div style="display:flex;flex-direction:column;gap:2px"><span style="font-size:14px;font-weight:500">${gdate()}</span><span class="small muted">${esc(setting('location').label)}</span></div>
-    <span class="ar" style="font-size:18px;opacity:.8">${hijri(new Date(), 'ar')}</span>
+    <span style="display:flex;flex-direction:column;align-items:flex-end;gap:8px"><span class="ar" style="font-size:18px;opacity:.8">${hijri(new Date(), 'ar')}</span><button class="iconbtn" data-act="themes" aria-label="Change look">${I.palette(20)}</button></span>
   </div>
   <div class="arc" aria-hidden="true">
     <svg viewBox="0 0 340 190"><path d="M20 180 A150 150 0 0 1 320 180" fill="none" stroke="currentColor" stroke-opacity=".35" stroke-width="1.5" stroke-dasharray="2 6" stroke-linecap="round"/><path d="M0 180 H340" stroke="currentColor" stroke-opacity=".25"/></svg>
@@ -43,7 +43,7 @@ function heroSky(sch, nx) {
 
 function heroClay(sch, nx) {
   return `
-  <div class="top" style="padding-top:22px"><span class="brand">awqat</span><a class="pill" href="#/settings">${I.loc(16)}${esc(setting('location').label)}</a></div>
+  <div class="top" style="padding-top:22px"><span class="brand">awqat</span><span style="display:flex;gap:8px"><a class="pill" href="#/settings">${I.loc(16)}${esc(setting('location').label)}</a><button class="iconbtn" data-act="themes" aria-label="Change look">${I.palette(20)}</button></span></div>
   <div class="arch"><div class="arch-in">
     <div class="lamp" aria-hidden="true"><i></i><b></b></div>
     <span class="ar" style="font-size:26px">${nx.ar}</span>
@@ -63,7 +63,7 @@ function heroInk(sch, nx) {
   const off = 754 * (1 - nx.frac);
   const sel = homeState.sel || nx.key;
   return `
-  <div class="top" style="padding-top:22px"><div style="display:flex;flex-direction:column;gap:2px"><span class="brand">Awqat</span><span class="small muted">${esc(setting('location').label)}</span></div><a class="iconbtn" href="#/snap" aria-label="Snap prayer time" style="border-radius:14px;color:var(--accent)">${I.scan(22)}</a></div>
+  <div class="top" style="padding-top:22px"><div style="display:flex;flex-direction:column;gap:2px"><span class="brand">Awqat</span><span class="small muted">${esc(setting('location').label)}</span></div><span style="display:flex;gap:8px"><button class="iconbtn" style="border-radius:14px;color:var(--accent)" data-act="themes" aria-label="Change look">${I.palette(20)}</button><a class="iconbtn" href="#/snap" aria-label="Snap prayer time" style="border-radius:14px;color:var(--accent)">${I.scan(22)}</a></span></div>
   <div class="ring">
     <div class="glow" aria-hidden="true"></div>
     <svg viewBox="0 0 280 280" width="280" height="280" aria-hidden="true">
@@ -88,7 +88,7 @@ function heroPaper(sch, nx) {
   const snap = activeSnap();
   const tk = `<span>${loc}</span><span style="color:#7FD1AE">${snap ? 'SNAPPED TIMES · ' + esc(snap.label.toUpperCase()) : 'CALCULATED TIMES'}</span><span>${esc(hijri().toUpperCase())}</span>`;
   return `
-  <div class="top" style="padding-top:22px"><span class="brand" style="font-size:22px">Awqat.</span><button class="pill" data-act="clock">${h24 ? '24h' : '12h'}</button></div>
+  <div class="top" style="padding-top:22px"><span class="brand" style="font-size:22px">Awqat.</span><span style="display:flex;gap:8px"><button class="pill" data-act="clock">${h24 ? '24h' : '12h'}</button><button class="iconbtn" style="border-color:var(--ink)" data-act="themes" aria-label="Change look">${I.palette(20)}</button></span></div>
   <div class="ticker" aria-hidden="true"><div>${tk}${tk}</div></div>
   <div class="pad" style="padding-top:26px;display:flex;flex-direction:column">
     <div style="display:flex;justify-content:space-between;align-items:baseline"><span style="font-size:15px;font-weight:600">Next — ${esc(nx.name)}${nx.iqama ? ' iqama' : ''} · in <span data-live="left">${left(nx.ms)}</span></span><span class="ar" style="font-size:16px;flex-shrink:0;padding-left:8px">${nx.ar}</span></div>

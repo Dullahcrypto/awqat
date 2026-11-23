@@ -1,6 +1,6 @@
 import { schedule, fmt, ampm, hhmm, calc, snaps, activeSnap, SALAH, PRAYERS, qiblaBearing } from './prayer.js';
 import { store, setting } from './store.js';
-import { esc, I, backbar, hijri, hijriParts } from './ui.js';
+import { esc, I, backbar, hijri, hijriParts, themeCards } from './ui.js';
 import { SIRAH, DUAS, DHIKR, NAMES } from '../data/content.js';
 import { COUNTRIES } from '../data/places.js';
 import { COLLECTIONS, WORKER } from './net.js';
@@ -293,7 +293,7 @@ export function settings() {
   const loc = setting('location'), th = setting('theme');
   return `<div class="screen">${backbar('Settings')}
   <div class="sec-h" style="margin-top:20px"><span class="k">Theme</span></div>
-  <div class="grid2">${THEMES.map(([k, n, a, b]) => `<button class="tile" data-act="theme" data-v="${k}" style="min-height:90px;${th === k ? 'box-shadow:inset 0 0 0 2px var(--accent)' : ''}"><span style="display:flex;gap:6px"><i style="width:22px;height:22px;border-radius:11px;background:${a};border:1px solid rgba(0,0,0,.15)"></i><i style="width:22px;height:22px;border-radius:11px;background:${b};border:1px solid rgba(0,0,0,.15)"></i></span><span class="t">${n}</span></button>`).join('')}</div>
+  <div class="tgrid" style="margin:0 18px">${themeCards(th)}</div>
   <div class="sec-h"><span class="k">Location</span><span class="small muted">${esc(loc.label)}</span></div>
   <div class="field"><label for="country">Country</label><select id="country" class="input" data-act="country">${Object.keys(COUNTRIES).map((c) => `<option ${loc.country === c ? 'selected' : ''}>${c}</option>`).join('')}<option value="__gps" ${loc.kind === 'gps' ? 'selected' : ''}>Somewhere else (use my location)</option></select></div>
   ${loc.kind === 'gps' ? '' : `<div class="field"><label for="state">State</label><select id="state" class="input" data-act="state">${(COUNTRIES[loc.country] || []).map(([s]) => `<option value="${s}" ${loc.state === s ? 'selected' : ''}>${s === 'FCT' ? 'Abuja (FCT)' : s}</option>`).join('')}</select></div>`}
@@ -312,3 +312,21 @@ export function settings() {
   </div>`;
 }
 export { SALAH, PRAYERS, hhmm };
+
+export function welcome() {
+  const loc = setting('location'), th = setting('theme');
+  return `<div class="welcome">
+  <div style="text-align:center;display:flex;flex-direction:column;gap:6px;margin-bottom:26px" class="rise">
+    <span class="ar" style="font-size:34px;color:var(--accent)">أوقات</span>
+    <span class="h1" style="font-size:44px">Awqat</span>
+    <span class="muted">Snap any prayer timetable. Never miss a salah.</span>
+  </div>
+  <p class="k" style="margin:0 4px 10px">1 · Choose your look</p>
+  <div class="tgrid">${themeCards(th)}</div>
+  <p class="small muted" style="margin:10px 4px 0">You can change it any time with the ${I.palette(14)} button on the home screen.</p>
+  <p class="k" style="margin:28px 4px 10px">2 · Where are you?</p>
+  <select class="input" data-act="state" aria-label="Your state">${(COUNTRIES[loc.country] || COUNTRIES.Nigeria).map(([st]) => `<option value="${st}" ${loc.state === st ? 'selected' : ''}>${st === 'FCT' ? 'Abuja (FCT)' : st}, Nigeria</option>`).join('')}</select>
+  <button class="btn ghost" data-act="gps" style="margin-top:10px">${I.loc(18)}Use my location instead</button>
+  <button class="btn" data-act="start" style="margin-top:28px">Start</button>
+  </div>`;
+}
