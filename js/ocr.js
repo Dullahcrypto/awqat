@@ -2,6 +2,7 @@
 // Strategy: clean the photo several ways, read each with Tesseract, then match
 // times to prayer names by where they sit on the board (same row or same column),
 // fixing common misreads. The best of all passes wins.
+import { loadNet, readTimes } from './hw.js';
 const TESS = 'https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js';
 let loading = null, worker = null;
 
@@ -96,6 +97,17 @@ function rotated(c, deg) {
   const x = o.getContext('2d', { willReadFrequently: true });
   x.fillStyle = '#808080'; x.fillRect(0, 0, o.width, o.height);
   x.translate(o.width / 2, o.height / 2); x.rotate(-r); x.drawImage(c, -c.width / 2, -c.height / 2);
+  return o;
+}
+
+// global threshold (Otsu)
+function otsu(G, invert) {
+  const hist = new Float64Array(256); G.g.forEach((v) => hist[v]++);
+  const n = G.g.length; let sum = 0; for (let i = 0; i < 256; i++) sum += i * hist[i];
+  let sB = 0, wB = 0, best = 0, t = 128;
+  for (let i = 0; i < 256; i++) { wB += hist[i]; if (!wB) continue; const wF = n - wB; if (!wF) break; sB += i * hist[i]; const mB = sB / wB, mF = (sum - sB) / wF, v = wB * wF * (mB - mF) * (mB - mF); if (v > best) { best = v; t = i; } }
+  const o = new Uint8ClampedArray(n);
+  for (let j = 0; j < n; j++) o[j] = (invert ? G.g[j] > t : G.g[j] < t) ? 0 : 255;
   return o;
 }
 
@@ -353,7 +365,25 @@ export async function readOnDevice(dataUrl, onProgress = () => {}, prior = null)
     clearTimeout(timer);
     if (!data) { try { await w.terminate(); } catch { /* */ } worker = null; loading = null; break; } // too slow: stop with what we have
     passes++;
-    const r = parse(data.text || '', wordsOf(data));
+    let r = parse(data.text || '', wordsOf(data));
+    const fullBoard = SAL.every((k) => r.times[k] && r.times[k].adhan && r.times[k].iqama);
+    if (i === 0 && !fullBoard) {
+      // handwriting reader: our own digit network finds the times; Tesseract's words supply the names
+      try {
+        onProgress('Reading handwriting', 0.2);
+        await loadNet(new URL('../data/hwnet.json', import.meta.url).href);
+        const labelsOnly = wordsOf(data).filter((x) => !/\d/.test(x.text || ''));
+        const masks = [adaptive(G, inv), adaptive(G, inv, 0.1, 0.08), otsu(G, inv)];
+        for (const ink of masks) {
+          const m = new Uint8Array(ink.length);
+          for (let j = 0; j < ink.length; j++) m[j] = ink[j] === 0 ? 1 : 0;
+          const rh = parse('', labelsOnly.concat(readTimes(m, G.w, G.h)));
+          const wh = 1.5 + rh.salah / 5;
+          Object.entries(rh.times).forEach(([k, v]) => { vote(k, 'adhan', v.adhan, wh); vote(k, 'iqama', v.iqama, wh); });
+          if (rh.salah > r.salah) r = rh;
+        }
+      } catch (e) { /* network not available: carry on with Tesseract only */ }
+    }
     const wgt = 1 + r.salah / 5; // passes that found more prayers count a little more
     Object.entries(r.times).forEach(([k, v]) => { vote(k, 'adhan', v.adhan, wgt); vote(k, 'iqama', v.iqama, wgt); });
     const sig = JSON.stringify(r.times);
@@ -387,3 +417,4 @@ export async function readOnDevice(dataUrl, onProgress = () => {}, prior = null)
   onProgress('Done', 1);
   return best;
 }
+export const __adaptive = adaptive;
