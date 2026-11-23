@@ -11,8 +11,9 @@ function loadScript(src) {
 async function getWorker() {
   if (worker) return worker;
   if (!loading) loading = (async () => {
-    if (!window.Tesseract) await loadScript(TESS);
-    worker = await window.Tesseract.createWorker('eng', 1);
+    const o = window.AWQAT_TESS || {}; // local testing override
+    if (!window.Tesseract) await loadScript(o.script || TESS);
+    worker = await window.Tesseract.createWorker('eng', 1, o.script ? { workerPath: o.workerPath, corePath: o.corePath, langPath: o.langPath, gzip: true } : {});
     return worker;
   })();
   return loading;
@@ -124,12 +125,14 @@ function to24(key, h, m) {
 const RANGE = { fajr: [3, 7], sunrise: [5, 8], dhuhr: [11, 15], jumuah: [11, 15], asr: [14, 18], maghrib: [17, 20], isha: [18, 23] };
 const ok = (k, s) => { if (!s) return false; const h = +s.slice(0, 2); return h >= RANGE[k][0] && h <= RANGE[k][1]; };
 
+const mins = (s) => +s.slice(0, 2) * 60 + +s.slice(3);
 function setTimes(times, k, list) {
   if (times[k]) return;
   const v = list.map(([h, m]) => to24(k, h, m)).filter((s) => ok(k, s));
   if (!v.length) return;
   let [a, b] = v;
   if (b && b < a) [a, b] = [b, a]; // iqama comes after adhan
+  if (b && mins(b) - mins(a) > (k === 'jumuah' ? 90 : 60)) b = ''; // iqama is never long after adhan
   times[k] = { adhan: a, iqama: k === 'sunrise' ? '' : (b && b !== a ? b : '') };
 }
 
@@ -199,7 +202,6 @@ function byText(text) {
 // When names are unreadable: boards list prayers in day order, so map rows of
 // times to Fajr → Sunrise → Dhuhr → Asr → Maghrib → Isha → Jumu'ah in sequence.
 const ORDER = ['fajr', 'sunrise', 'dhuhr', 'asr', 'maghrib', 'isha', 'jumuah'];
-const mins = (s) => +s.slice(0, 2) * 60 + +s.slice(3);
 function assignInOrder(rows) {
   const times = {}; let p = 0, last = -1;
   for (const row of rows) {
@@ -266,22 +268,33 @@ export async function readOnDevice(dataUrl, onProgress = () => {}) {
     ['Trying light text on dark', () => out(G, contrast(G, !inv)), '6'],
     ['Reading the original photo', () => base, '4']
   ];
-  let best = { times: {}, salah: 0, text: '' };
-  const merged = {};
+  const votes = {}; let agree = 0, prev = '';
+  const vote = (k, f, v, wgt) => { if (!v) return; votes[k] = votes[k] || { adhan: {}, iqama: {} }; votes[k][f][v] = (votes[k][f][v] || 0) + wgt; };
   for (let i = 0; i < variants.length; i++) {
     const [msg, make, psm] = variants[i];
     onProgress(msg, 0.08 + 0.9 * (i / variants.length));
     await w.setParameters({ tessedit_pageseg_mode: psm, preserve_interword_spaces: '1', user_defined_dpi: '300' });
     const { data } = await w.recognize(make().toDataURL('image/png'), {}, { text: true, blocks: true });
     const r = parse(data.text || '', wordsOf(data));
-    Object.entries(r.times).forEach(([k, v]) => { if (!merged[k] || (!merged[k].iqama && v.iqama)) merged[k] = v; });
-    if (r.salah > best.salah) best = { ...r, text: data.text || '' };
-    const full = (o) => SAL.every((k) => o[k] && o[k].iqama);
-    if (full(best.times)) break;
-    if (i >= 1 && full(merged)) break;
+    const wgt = 1 + r.salah / 5; // passes that found more prayers count a little more
+    Object.entries(r.times).forEach(([k, v]) => { vote(k, 'adhan', v.adhan, wgt); vote(k, 'iqama', v.iqama, wgt); });
+    const sig = JSON.stringify(r.times);
+    if (r.salah === 5 && sig === prev) agree++;
+    prev = sig;
+    if (agree >= 1 && i >= 1) break; // two passes read exactly the same full board
   }
-  const mSal = SAL.filter((k) => merged[k]).length;
-  if (mSal >= best.salah) best = { times: merged, salah: mSal, text: best.text };
+  const pick = (o) => { const e = Object.entries(o || {}); if (!e.length) return ''; e.sort((x, y) => y[1] - x[1]); return e[0][0]; };
+  const times = {};
+  Object.keys(votes).forEach((k) => { const a = pick(votes[k].adhan); if (!a) return; let q = pick(votes[k].iqama); if (q && q <= a) q = ''; times[k] = { adhan: a, iqama: k === 'sunrise' ? '' : q }; });
+  // day order must hold: Fajr < Sunrise < Dhuhr < Asr < Maghrib < Isha
+  const seq = ['fajr', 'sunrise', 'dhuhr', 'asr', 'maghrib', 'isha'];
+  for (let i = 0; i < seq.length; i++) for (let j = i + 1; j < seq.length; j++) {
+    const A = times[seq[i]], B = times[seq[j]];
+    if (A && B && A.adhan >= B.adhan) delete times[seq[i] === 'fajr' && seq[j] === 'sunrise' ? 'fajr' : (Object.values(votes[seq[i]].adhan).reduce((x, y) => x + y, 0) < Object.values(votes[seq[j]].adhan).reduce((x, y) => x + y, 0) ? seq[i] : seq[j])];
+  }
+  // how sure are we? a time seen in only one pass gets flagged for checking
+  const low = Object.keys(times).filter((k) => (votes[k].adhan[times[k].adhan] || 0) < 2.2 || (times[k].iqama && (votes[k].iqama[times[k].iqama] || 0) < 2.2));
+  const best = { times, low, salah: SAL.filter((k) => times[k]).length };
   onProgress('Done', 1);
   return best;
 }

@@ -138,7 +138,7 @@ document.addEventListener('click', async (e) => {
         P.ps.cropping = false; P.ps.scanning = true; P.ps.status = 'Reading on your phone…'; P.ps.shown = img; render(true);
         const res = await readOnDevice(img, (msg, f) => { const b = document.querySelector('.badge'); if (b) b.textContent = msg + '… ' + Math.round(f * 100) + '%'; });
         P.ps.scanning = false;
-        if (res.salah >= 2) { P.ps.pending = { times: res.times, source: 'phone', found: res.salah }; location.hash = '#/review'; }
+        if (res.salah >= 2) { P.ps.pending = { times: res.times, low: res.low || [], source: 'phone', found: res.salah }; location.hash = '#/review'; }
         else { P.ps.failed = true; P.ps.cropping = true; P.ps.partial = res.times; render(true); }
       } catch (err) { P.ps.scanning = false; P.ps.failed = true; P.ps.cropping = true; P.ps.error = err.message || ''; render(true); }
       break;

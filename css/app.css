@@ -333,3 +333,7 @@ html[data-theme="paper"] .pay-price{color:#7FD1AE;font-weight:800;letter-spacing
 .hd.tr{right:-12px;top:-12px}.hd.tr::after{right:10px;top:10px;border-left:0;border-bottom:0}
 .hd.bl{left:-12px;bottom:-12px}.hd.bl::after{left:10px;bottom:10px;border-right:0;border-top:0}
 .hd.br{right:-12px;bottom:-12px}.hd.br::after{right:10px;bottom:10px;border-left:0;border-top:0}
+
+.rrow.low .timein{border-color:#E29A3C;background:color-mix(in srgb,#E29A3C 12%,var(--card))}
+.rrow.miss .timein:first-of-type{border-style:dashed;border-color:#E29A3C}
+.chk{font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#C77A1A;background:color-mix(in srgb,#E29A3C 18%,transparent);padding:2px 6px;border-radius:6px;vertical-align:2px}
