@@ -48,7 +48,29 @@ export async function scanBoard(dataUrl) {
   });
   const j = await r.json().catch(() => ({}));
   if (!r.ok || !j.times) throw new Error(j.error || 'Could not read that photo. Try again closer, with the whole timetable in frame.');
+  j.times = fixClock(j.times);
   return j;
+}
+
+// AI readers sometimes skip the 12-hour to 24-hour step. Each prayer has a known window, so put it right.
+const WINDOW = { fajr: [3, 7], sunrise: [5, 8], dhuhr: [11, 15], jumuah: [11, 15], asr: [14, 18], maghrib: [17, 21], isha: [18, 23] };
+function fixOne(key, t) {
+  const m = String(t || '').trim().match(/^(\d{1,2})\s*[:.]\s*(\d{2})/);
+  if (!m) return '';
+  let h = +m[1]; const mi = +m[2];
+  if (h > 23 || mi > 59) return '';
+  const [lo, hi] = WINDOW[key] || [0, 23];
+  if (h < lo && h + 12 <= hi + 1) h += 12;
+  else if (h > hi && h - 12 >= lo - 1) h -= 12;
+  return String(h).padStart(2, '0') + ':' + String(mi).padStart(2, '0');
+}
+export function fixClock(times) {
+  const out = {};
+  for (const [k, v] of Object.entries(times || {})) {
+    const o = v && typeof v === 'object' ? v : { adhan: v, iqama: '' };
+    out[k] = { adhan: fixOne(k, o.adhan), iqama: fixOne(k, o.iqama) };
+  }
+  return out;
 }
 
 // ---- Qur'an (api.alquran.cloud) ----

@@ -25,6 +25,8 @@ Return ONLY JSON, no prose, in exactly this shape:
 Rules:
 - Use 24-hour HH:MM. Boards often omit AM/PM: Fajr and sunrise are morning; Dhuhr is around midday (12:00-14:30); Asr, Maghrib and Isha are afternoon/evening, so add 12 hours where needed.
 - If a time is missing or unreadable use "".
+- Copy digits exactly as written. To convert to 24-hour add exactly 12 to the hour (7:20 PM = 19:20, never 20:20). Isha is usually 19:00-21:00 and Maghrib 18:00-19:30.
+- Only fill sunrise if the board has its own Sunrise/Shuruq/Fitowar rana row. Never copy another prayer's time into sunrise or jumuah.
 - Arabic, Hausa, Yoruba, Urdu or other labels are fine: map Subh/Fajr, Zuhr/Dhuhr, Asr, Maghrib, Isha, Jumu'ah/Friday.
 - If the board shows a whole month, use the row for today's date: TODAY_DATE.`;
 
@@ -43,7 +45,7 @@ const json = (data, status, headers) => new Response(JSON.stringify(data), { sta
 
 // Which AI readers are switched on
 const providers = (env) => ({ gemini: !!env.GEMINI_API_KEY, cloudflare: !!env.AI, anthropic: !!env.ANTHROPIC_API_KEY });
-const pickJSON = (text) => { const m = (text || '').match(/\{[\s\S]*\}/); return JSON.parse(m ? m[0] : text); };
+const pickJSON = (text) => { if (text && typeof text === 'object') return text; text = String(text || ''); const m = text.match(/\{[\s\S]*\}/); return JSON.parse(m ? m[0] : text); };
 
 async function viaGemini(env, img, mime, prompt) {
   const models = [env.GEMINI_MODEL, 'gemini-2.5-flash', 'gemini-2.0-flash'].filter(Boolean);
@@ -65,11 +67,14 @@ async function viaCloudflare(env, img, prompt) {
   const bin = atob(img), bytes = new Array(bin.length);
   for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
   const model = '@cf/meta/llama-3.2-11b-vision-instruct';
-  const run = () => env.AI.run(model, { messages: [{ role: 'user', content: prompt }], image: bytes, max_tokens: 700, temperature: 0 });
+  const run = () => env.AI.run(model, { prompt: prompt, image: bytes, max_tokens: 700, temperature: 0 });
   let out;
   try { out = await run(); }
-  catch (e) { if (/agree/i.test(String(e && e.message))) { await env.AI.run(model, { prompt: 'agree' }); out = await run(); } else throw e; }
-  return { ...pickJSON(out.response || out.result || ''), reader: 'cloudflare' };
+  catch (e) { if (/agree/i.test(String(e && e.message))) { try { await env.AI.run(model, { prompt: 'agree' }); } catch (e2) { } out = await run(); } else throw e; }
+  try { return { ...pickJSON(out.response || ''), reader: 'cloudflare' }; } catch (e) {
+    const o2 = await env.AI.run(model, { prompt: prompt + '\nReply with the JSON object only. Start with { and end with }.', image: bytes, max_tokens: 700, temperature: 0 });
+    return { ...pickJSON(o2.response || ''), reader: 'cloudflare' };
+  }
 }
 
 async function viaAnthropic(env, img, mime, prompt) {
