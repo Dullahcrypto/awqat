@@ -3,7 +3,9 @@
 //   GET  /news                                          -> { items: [{ title, link, source, date }] }
 //   GET  /videos                                        -> { items: [{ id, title, channel, date }] }
 // Secrets / vars (set in the Cloudflare dashboard → Worker → Settings → Variables):
-//   ANTHROPIC_API_KEY  (secret, required for /scan)
+//   GEMINI_API_KEY     (secret) free key from aistudio.google.com: first AI reader
+//   AI                 Workers AI binding (free daily allowance): second reader
+//   ANTHROPIC_API_KEY  (secret, optional) third reader
 //   ALLOWED_ORIGIN     e.g. https://dullahcrypto.github.io   (use * while testing)
 //   MODEL              optional, default claude-sonnet-5-5
 //   NEWS_FEEDS         optional, comma-separated RSS/Atom URLs
@@ -39,29 +41,59 @@ function cors(env, req) {
 }
 const json = (data, status, headers) => new Response(JSON.stringify(data), { status, headers: { ...headers, 'Content-Type': 'application/json' } });
 
-async function scan(req, env, h) {
-  if (!env.ANTHROPIC_API_KEY) return json({ error: 'ANTHROPIC_API_KEY is not set on the worker' }, 500, h);
-  const body = await req.json().catch(() => null);
-  if (!body || !body.image || body.image.length > 7_000_000) return json({ error: 'Send a JPEG image under 5 MB' }, 400, h);
-  const today = body.today || new Date().toISOString().slice(0, 10);
+// Which AI readers are switched on
+const providers = (env) => ({ gemini: !!env.GEMINI_API_KEY, cloudflare: !!env.AI, anthropic: !!env.ANTHROPIC_API_KEY });
+const pickJSON = (text) => { const m = (text || '').match(/\{[\s\S]*\}/); return JSON.parse(m ? m[0] : text); };
+
+async function viaGemini(env, img, mime, prompt) {
+  const models = [env.GEMINI_MODEL, 'gemini-2.5-flash', 'gemini-2.0-flash'].filter(Boolean);
+  let last = 'Gemini failed';
+  for (const model of models) {
+    const r = await fetch('https://generativelanguage.googleapis.com/v1beta/models/' + model + ':generateContent?key=' + env.GEMINI_API_KEY, {
+      method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ contents: [{ parts: [{ inline_data: { mime_type: mime, data: img } }, { text: prompt }] }], generationConfig: { temperature: 0, responseMimeType: 'application/json' } })
+    });
+    const j = await r.json().catch(() => ({}));
+    if (r.ok) { const text = ((((j.candidates || [])[0] || {}).content || {}).parts || []).map((p) => p.text || '').join(''); return { ...pickJSON(text), reader: 'gemini' }; }
+    last = (j.error && j.error.message) || ('Gemini error ' + r.status);
+    if (r.status === 429) break; // daily limit used up: let the next reader try
+  }
+  throw new Error(last);
+}
+
+async function viaCloudflare(env, img, prompt) {
+  const bin = atob(img), bytes = new Array(bin.length);
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  const model = '@cf/meta/llama-3.2-11b-vision-instruct';
+  const run = () => env.AI.run(model, { messages: [{ role: 'user', content: prompt }], image: bytes, max_tokens: 700, temperature: 0 });
+  let out;
+  try { out = await run(); }
+  catch (e) { if (/agree/i.test(String(e && e.message))) { await env.AI.run(model, { prompt: 'agree' }); out = await run(); } else throw e; }
+  return { ...pickJSON(out.response || out.result || ''), reader: 'cloudflare' };
+}
+
+async function viaAnthropic(env, img, mime, prompt) {
   const r = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: { 'content-type': 'application/json', 'x-api-key': env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01' },
-    body: JSON.stringify({
-      model: env.MODEL || 'claude-sonnet-5-5',
-      max_tokens: 800,
-      messages: [{ role: 'user', content: [
-        { type: 'image', source: { type: 'base64', media_type: body.mediaType || 'image/jpeg', data: body.image } },
-        { type: 'text', text: PROMPT.replace('TODAY_DATE', today) }
-      ] }]
-    })
+    method: 'POST', headers: { 'content-type': 'application/json', 'x-api-key': env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01' },
+    body: JSON.stringify({ model: env.MODEL || 'claude-sonnet-5-5', max_tokens: 800, messages: [{ role: 'user', content: [{ type: 'image', source: { type: 'base64', media_type: mime, data: img } }, { type: 'text', text: prompt }] }] })
   });
   const out = await r.json().catch(() => ({}));
-  if (!r.ok) return json({ error: (out.error && out.error.message) || 'AI request failed' }, 502, h);
-  const text = (out.content || []).map((c) => c.text || '').join('');
-  const m = text.match(/\{[\s\S]*\}/);
-  try { return json(JSON.parse(m ? m[0] : text), 200, h); }
-  catch { return json({ error: 'Could not read times from this photo', raw: text.slice(0, 300) }, 422, h); }
+  if (!r.ok) throw new Error((out.error && out.error.message) || 'AI request failed');
+  return { ...pickJSON((out.content || []).map((c) => c.text || '').join('')), reader: 'anthropic' };
+}
+
+async function scan(req, env, h) {
+  const body = await req.json().catch(() => null);
+  if (!body || !body.image || body.image.length > 7000000) return json({ error: 'Send a JPEG image under 5 MB' }, 400, h);
+  const prompt = PROMPT.replace('TODAY_DATE', body.today || new Date().toISOString().slice(0, 10));
+  const mime = body.mediaType || 'image/jpeg', errors = [];
+  const order = [['gemini', () => viaGemini(env, body.image, mime, prompt)], ['cloudflare', () => viaCloudflare(env, body.image, prompt)], ['anthropic', () => viaAnthropic(env, body.image, mime, prompt)]];
+  for (const [name, fn] of order) {
+    if (!providers(env)[name]) continue;
+    try { const r = await fn(); if (r && r.times) return json(r, 200, h); errors.push(name + ': no times'); }
+    catch (e) { errors.push(name + ': ' + String(e && e.message || e).slice(0, 120)); }
+  }
+  return json({ error: errors.length ? 'The AI readers could not read this photo. (' + errors.join(' | ') + ')' : 'No AI reader is set up on the worker' }, 502, h);
 }
 
 const tag = (s, t) => { const m = s.match(new RegExp('<' + t + '[^>]*>([\\s\\S]*?)</' + t + '>', 'i')); return m ? m[1].replace(/<!\[CDATA\[|\]\]>/g, '').trim() : ''; };
@@ -129,7 +161,7 @@ export default {
       if (pathname === '/news') return await news(env, h, ctx, req);
       if (pathname === '/videos') return await videos(env, h);
       if (pathname === '/verify') return await verify(req, env, h);
-      return json({ ok: true, service: 'awqat' }, 200, h);
+      return json({ ok: true, service: 'awqat', ai: providers(env) }, 200, h);
     } catch (e) {
       return json({ error: String(e && e.message || e) }, 500, h);
     }

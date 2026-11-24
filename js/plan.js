@@ -3,7 +3,12 @@ import { store } from './store.js';
 const C = () => window.AWQAT_CONFIG || {};
 export const FREE = () => C().FREE_SNAPS_PER_DAY || 3;
 export const PRICE = () => C().LIFETIME_PRICE_NGN || 2000;
-export const aiOn = () => !!C().AI_ENABLED;
+let workerAI = null;
+export const aiOn = () => !!C().AI_ENABLED || !!(workerAI && (workerAI.gemini || workerAI.cloudflare || workerAI.anthropic));
+export async function checkAI() {
+  const w = (C().WORKER_URL || '').replace(/\/$/, ''); if (!w) return;
+  try { const j = await (await fetch(w + '/')).json(); workerAI = j.ai || null; } catch { /* offline */ }
+}
 export const payOn = () => !!C().PAYSTACK_PUBLIC_KEY;
 export const isPro = () => !!store.get('pro', null);
 const today = () => new Date().toDateString();
