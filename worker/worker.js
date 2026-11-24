@@ -63,7 +63,17 @@ async function viaGemini(env, img, mime, prompt) {
   throw new Error(last);
 }
 
+// Llama 4 Scout (free, strongest Cloudflare vision model) first; Llama 3.2 Vision as backup.
 async function viaCloudflare(env, img, prompt) {
+  try {
+    const o = await env.AI.run('@cf/meta/llama-4-scout-17b-16e-instruct', { messages: [{ role: 'user', content: [{ type: 'text', text: prompt }, { type: 'image_url', image_url: { url: 'data:image/jpeg;base64,' + img } }] }], max_tokens: 800, temperature: 0 });
+    const r = pickJSON(o.response);
+    if (r && r.times) return { ...r, reader: 'cloudflare-scout' };
+  } catch (e) { }
+  return viaLlama32(env, img, prompt);
+}
+
+async function viaLlama32(env, img, prompt) {
   const bin = atob(img), bytes = new Array(bin.length);
   for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
   const model = '@cf/meta/llama-3.2-11b-vision-instruct';
