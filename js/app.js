@@ -5,7 +5,7 @@ import * as P from './pages.js';
 import { toast, I, themeSheet } from './ui.js';
 import { readOnDevice } from './ocr.js';
 import { canSnap, recordSnap, buyLifetime, restore, checkAI, aiOn } from './plan.js';
-import { shrink, scanBoard, quran, hadith, COLLECTIONS, news, videos } from './net.js';
+import { WORKER, shrink, scanBoard, quran, hadith, COLLECTIONS, news, videos } from './net.js';
 import { scheduleToday, enableNotifications, downloadICS, androidAlarmURL } from './alarms.js';
 import { COUNTRIES, placeLabel } from '../data/places.js';
 import { DHIKR } from '../data/content.js';
@@ -135,13 +135,21 @@ document.addEventListener('click', async (e) => {
       recordSnap();
       try {
         const img = await cropTo(P.ps.preview, P.ps.crop);
-        P.ps.cropping = false; P.ps.scanning = true; P.ps.status = 'Reading on your phone…'; P.ps.shown = img; render(true);
+        P.ps.cropping = false; P.ps.shown = img; P.ps.error = '';
+        const count = (t) => ['fajr', 'dhuhr', 'asr', 'maghrib', 'isha'].filter((k) => t && t[k] && (t[k].adhan || t[k].iqama)).length;
+        // 1) AI reader first: far better on handwriting and messy boards.
+        if (WORKER()) {
+          P.ps.scanning = true; P.ps.status = 'Reading with AI…'; render(true);
+          try {
+            const ai = await scanBoard(img);
+            if (count(ai.times) >= 3) { P.ps.scanning = false; P.ps.pending = { times: ai.times, confidence: ai.confidence, notes: ai.notes, source: 'ai' }; location.hash = '#/review'; break; }
+          } catch (e) { P.ps.error = ''; }
+        }
+        // 2) Backup: read on the phone (works offline).
+        P.ps.scanning = true; P.ps.status = 'Reading on your phone…'; render(true);
         const cal = calc(); const prior = {}; Object.keys(cal).forEach((k) => { prior[k] = cal[k].getHours() * 60 + cal[k].getMinutes(); });
         const res = await readOnDevice(img, (msg, f) => { const b = document.querySelector('.badge'); if (b) b.textContent = msg + '… ' + Math.round(f * 100) + '%'; }, prior);
         P.ps.scanning = false;
-        if (res.salah < 4 && aiOn()) { P.ps.partial = res.times; P.ps.status = 'Reading with AI…'; P.ps.scanning = true; render(true);
-          try { const ai = await scanBoard(img); P.ps.scanning = false; P.ps.pending = { times: ai.times || {}, confidence: ai.confidence, notes: ai.notes, source: 'ai' }; location.hash = '#/review'; break; }
-          catch (e) { P.ps.scanning = false; } }
         if (res.salah >= 2) { P.ps.pending = { times: res.times, low: res.low || [], source: 'phone', found: res.salah }; location.hash = '#/review'; }
         else { P.ps.failed = true; P.ps.cropping = true; P.ps.partial = res.times; render(true); }
       } catch (err) { P.ps.scanning = false; P.ps.failed = true; P.ps.cropping = true; P.ps.error = err.message || ''; render(true); }
